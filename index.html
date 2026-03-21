@@ -112,6 +112,7 @@ const T = {
     artistName: "Artist",
     nationality: "Nationality",
     title: "Title",
+    inventoryNo: "Inventory No.",
     artist: "Artist / Author",
     artistNationality: "Nationality",
     birthYear: "Born",
@@ -220,9 +221,6 @@ const T = {
     byCategory: "Value by Category",
     pieceCount: "Pieces",
     noValue: "No price set",
-    reorderMode: "Reorder",
-    reorderDone: "Done",
-    holdToReorder: "Hold an item to reorder",
     menu: "Menu",
     warnDupTitle: "⚠️ A piece with the same artist and title already exists in the collection.",
     warnDupPhoto: "⚠️ One or more photos already appear in another entry.",
@@ -246,6 +244,7 @@ const T = {
     artistName: "Artist",
     nationality: "Naționalitate",
     title: "Titlu",
+    inventoryNo: "Nr. Inventar",
     artist: "Artist / Autor",
     artistNationality: "Naționalitate",
     birthYear: "Născut",
@@ -354,9 +353,6 @@ const T = {
     byCategory: "Valoare pe Categorii",
     pieceCount: "Piese",
     noValue: "Fără preț",
-    reorderMode: "Reordonare",
-    reorderDone: "Gata",
-    holdToReorder: "Ține apăsat pentru a reordona",
     menu: "Meniu",
     warnDupTitle: "⚠️ O piesă cu același artist și titlu există deja în colecție.",
     warnDupPhoto: "⚠️ Una sau mai multe fotografii apar deja la o altă piesă.",
@@ -401,7 +397,7 @@ function compressImage(file, maxDim, quality) {
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
 
 const emptyItem = () => ({
-  id: generateId(), title: "", artistId: "", year: "", eraFrom: "", eraTo: "",
+  id: generateId(), title: "", inventoryNo: "", artistId: "", year: "", eraFrom: "", eraTo: "",
   category: "", medium: "", price: "", description: "", framed: null,
   dimensions: "", dimFrame: "", dimHeight: "", dimWidth: "", dimDepth: "", condition: "", storageLocation: "", links: [""], keywords: "",
   photos: [], thumbnails: [], dateAdded: new Date().toISOString(),
@@ -643,6 +639,8 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
 
         <div><label style={S.label}>{t.title}</label><input style={S.input} value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
 
+        <div><label style={S.label}>{t.inventoryNo}</label><input style={S.input} value={form.inventoryNo || ""} onChange={(e) => set("inventoryNo", e.target.value)} placeholder={lang === "ro" ? "ex. 001" : "e.g. 001"} /></div>
+
         <ArtistField artistId={form.artistId} artists={artists} lang={lang}
           onSelect={(id) => set("artistId", id)}
           onCreate={(name) => { const a = onArtistCreate(name); set("artistId", a.id); return a; }}
@@ -802,6 +800,7 @@ function ItemDetail({ item, artists, onBack, onEdit, onDelete, lang }) {
 
       <div style={{ padding: "16px 20px" }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: "#2c2420", margin: "0 0 4px 0", fontWeight: 700 }}>{item.title || (lang === "ro" ? "Fără titlu" : "Untitled")}</h2>
+        {item.inventoryNo && <div style={{ fontSize: 13, color: "#9a8e82", marginBottom: 2 }}>{t.inventoryNo} {item.inventoryNo}</div>}
         {artist && (
           <div style={{ fontSize: 17, color: "#6b5b4e", fontWeight: 500, marginBottom: 2 }}>
             {artist.name}{artist.nationality ? ` — ${artist.nationality}` : ""}
@@ -1101,11 +1100,8 @@ function ArtCollection() {
   const [sortDir, setSortDir] = useState("desc");
   const [showFilters, setShowFilters] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [reorderMode, setReorderMode] = useState(false);
-  const [dragIdx, setDragIdx] = useState(null);
   const [toast, setToast] = useState(null);
   
-  const longPressTimer = useRef(null);
   const historyDepth = useRef(0);
   const t = T[lang];
 
@@ -1124,7 +1120,7 @@ function ArtCollection() {
 
   const navigateToGallery = useCallback(() => {
     const depth = historyDepth.current;
-    setView("gallery"); setSelectedId(null); setEditingItem(null); setShowMenu(false); setReorderMode(false);
+    setView("gallery"); setSelectedId(null); setEditingItem(null); setShowMenu(false);
     if (depth > 0) {
       historyDepth.current = 0;
       window.history.go(-depth);
@@ -1142,13 +1138,9 @@ function ArtCollection() {
         setSelectedId(null);
         setEditingItem(null);
         setShowMenu(false);
-        setReorderMode(false);
-      } else if (state.view === "reorder") {
-        setReorderMode(true);
       } else {
         setView(state.view);
         setShowMenu(false);
-        setReorderMode(false);
       }
     };
     window.addEventListener("popstate", handlePopState);
@@ -1218,14 +1210,12 @@ function ArtCollection() {
     await saveData("art:artists", data.artists);
   };
 
-  const moveItem = async (fromIdx, toIdx) => {
-    if (toIdx < 0 || toIdx >= items.length) return;
-    const ni = [...items];
-    const [moved] = ni.splice(fromIdx, 1);
-    ni.splice(toIdx, 0, moved);
-    await persistItems(ni);
-    setDragIdx(toIdx);
-  };
+
+  const catCounts = useMemo(() => {
+    const counts = { "": items.length };
+    CATEGORIES.forEach((c) => { counts[c] = items.filter((i) => i.category === c).length; });
+    return counts;
+  }, [items]);
 
   const artistNames = useMemo(() => [...new Set(items.map((i) => i.artistId).filter(Boolean))].map((id) => artists.find((a) => a.id === id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)), [items, artists]);
   const nationalities = useMemo(() => [...new Set(artists.filter((a) => a.nationality).map((a) => a.nationality))].sort(), [artists]);
@@ -1240,7 +1230,7 @@ function ArtCollection() {
       const q = search.toLowerCase();
       r = r.filter((i) => {
         const a = artists.find((ar) => ar.id === i.artistId);
-        return [i.title, a?.name, a?.nationality, i.description, i.keywords, i.storageLocation, i.year?.toString()].some((f) => f && f.toLowerCase().includes(q));
+        return [i.title, i.inventoryNo, a?.name, a?.nationality, i.description, i.keywords, i.storageLocation, i.year?.toString()].some((f) => f && f.toLowerCase().includes(q));
       });
     }
     r = [...r].sort((a, b) => {
@@ -1288,18 +1278,11 @@ function ArtCollection() {
                 <span style={{ fontSize: 13, color: "#9a8e82" }}>{items.length} {t.totalPieces}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {reorderMode ? (
-                  <button onClick={() => { setReorderMode(false); setDragIdx(null); navigateBack(); }} style={{ ...S.primaryBtn, padding: "6px 14px", fontSize: 13 }}>{t.reorderDone}</button>
-                ) : (
-                  <>
                     <button onClick={() => { setShowMenu(true); }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
                     <button onClick={() => setLang(lang === "en" ? "ro" : "en")} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 700, color: "#5a4e43" }}>{lang === "en" ? "RO" : "EN"}</button>
-                  </>
-                )}
               </div>
             </div>
 
-            {!reorderMode && <>
             <div style={{ position: "relative", marginBottom: 10 }}>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.search} style={{ width: "100%", padding: "12px 12px 12px 38px", border: "1px solid #d0c8be", borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2c2420", boxSizing: "border-box", outline: "none" }} />
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#a8968a" }}>🔍</span>
@@ -1307,8 +1290,9 @@ function ArtCollection() {
 
             <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
               {["", ...CATEGORIES].map((c) => (
-                <button key={c} onClick={() => setCatFilter(c)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif", background: catFilter === c ? "#6b5b4e" : "#e8e0d6", color: catFilter === c ? "#fff" : "#5a4e43" }}>
+                <button key={c} onClick={() => setCatFilter(c)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif", background: catFilter === c ? "#6b5b4e" : "#e8e0d6", color: catFilter === c ? "#fff" : "#5a4e43", display: "flex", alignItems: "center", gap: 5 }}>
                   {c === "" ? t.all : t[c]}
+                  <span style={{ fontSize: 11, fontWeight: 700, opacity: 0.7 }}>{catCounts[c] || 0}</span>
                 </button>
               ))}
             </div>
@@ -1345,56 +1329,22 @@ function ArtCollection() {
                 {activeFilters > 0 && <button onClick={() => { setArtistFilter(""); setNationalityFilter(""); setMediumFilter(""); setCatFilter(""); }} style={{ background: "none", border: "none", color: "#c0564a", fontSize: 13, cursor: "pointer", fontWeight: 600, textAlign: "left", padding: "4px 0" }}>{t.clearFilters}</button>}
               </div>
             )}
-            </>}
           </div>
 
           <div style={{ padding: "12px 12px 100px" }}>
-            {reorderMode && <div style={{ textAlign: "center", padding: "8px", fontSize: 13, color: "#7a6e63", background: "#e8e0d6", borderRadius: 8, marginBottom: 10 }}>{t.holdToReorder}</div>}
-            {(reorderMode ? items : filtered).length === 0 ? (
+            {filtered.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 20px", color: "#9a8e82", fontSize: 15, lineHeight: 1.6 }}>{items.length === 0 ? t.noItems : t.noResults}</div>
-            ) : reorderMode ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {items.map((item, idx) => {
-                  const artist = artists.find((a) => a.id === item.artistId);
-                  const isActive = dragIdx === idx;
-                  return (
-                    <div key={item.id} style={{
-                      display: "flex", alignItems: "center", gap: 10, background: isActive ? "#e8e0d6" : "#fff",
-                      borderRadius: 10, padding: "8px 10px", border: "1px solid #e8e0d6",
-                      boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
-                      transition: "background 0.15s",
-                    }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginRight: 4 }}>
-                        <button onClick={() => moveItem(idx, idx - 1)} disabled={idx === 0}
-                          style={{ background: "none", border: "none", fontSize: 18, cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#d0c8be" : "#6b5b4e", padding: 0, lineHeight: 1 }}>▲</button>
-                        <button onClick={() => moveItem(idx, idx + 1)} disabled={idx === items.length - 1}
-                          style={{ background: "none", border: "none", fontSize: 18, cursor: idx === items.length - 1 ? "default" : "pointer", color: idx === items.length - 1 ? "#d0c8be" : "#6b5b4e", padding: 0, lineHeight: 1 }}>▼</button>
-                      </div>
-                      <div style={{ width: 50, height: 50, borderRadius: 8, overflow: "hidden", background: "#e8e0d6", flexShrink: 0 }}>
-                        {item.thumbnails?.[0] || item.photos?.[0] ? <img src={item.thumbnails?.[0] || item.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: 20, opacity: 0.3 }}>🖼</span>}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#2c2420", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title || "—"}</div>
-                        <div style={{ fontSize: 12, color: "#7a6e63" }}>{artist?.name || ""}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {filtered.map((item, fi) => {
                   const artist = artists.find((a) => a.id === item.artistId);
-                  const itemIdx = items.findIndex((i) => i.id === item.id);
                   return (
                     <div key={item.id} className="gallery-item"
                       onClick={() => { setSelectedId(item.id); navigateTo("detail"); }}
-                      onTouchStart={() => { longPressTimer.current = setTimeout(() => { setReorderMode(true); setDragIdx(itemIdx); window.history.pushState({ view: "reorder" }, ""); historyDepth.current++; }, 600); }}
-                      onTouchEnd={() => { clearTimeout(longPressTimer.current); }}
-                      onTouchMove={() => { clearTimeout(longPressTimer.current); }}
                       style={{ background: "#fff", borderRadius: 12, overflow: "hidden", cursor: "pointer", border: "1px solid #e8e0d6", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", WebkitUserSelect: "none", userSelect: "none", animationDelay: `${Math.min(fi * 30, 300)}ms` }}>
-                      <div style={{ width: "100%", height: 140, background: "#e8e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: "100%", height: 140, background: "#e8e0d6", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                         {item.thumbnails?.[0] || item.photos?.[0] ? <img src={item.thumbnails?.[0] || item.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 36, opacity: 0.3 }}>🖼</span>}
+                        {item.inventoryNo && <div style={{ position: "absolute", top: 6, left: 6, background: "rgba(44,36,32,0.75)", color: "#fff", padding: "2px 7px", borderRadius: 5, fontSize: 11, fontWeight: 700, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em" }}>{item.inventoryNo}</div>}
                       </div>
                       <div style={{ padding: "10px 10px 12px" }}>
                         <div style={{ fontWeight: 700, fontSize: 14, color: "#2c2420", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title || "—"}</div>
@@ -1411,7 +1361,7 @@ function ArtCollection() {
             )}
           </div>
 
-          {!reorderMode && <button onClick={() => { setEditingItem(null); navigateTo("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
+          <button onClick={() => { setEditingItem(null); navigateTo("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>
         </div>
       )}
       {toast && (
