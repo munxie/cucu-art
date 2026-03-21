@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cucu-art-v7.3';
+const CACHE_NAME = 'cucu-art-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -33,4 +33,3 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
-
