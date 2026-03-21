@@ -616,7 +616,7 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
     const np = [], nt = [];
     for (const file of files.slice(0, remaining)) {
       np.push(await compressImage(file, 1200, 0.7));
-      nt.push(await compressImage(file, 200, 0.5));
+      nt.push(await compressImage(file, 400, 0.7));
     }
     setForm((f) => ({ ...f, photos: [...f.photos, ...np], thumbnails: [...(f.thumbnails || []), ...nt] }));
     setProcessing(false);
