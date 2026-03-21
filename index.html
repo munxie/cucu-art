@@ -453,19 +453,19 @@ function lifespan(a) {
   return `(${a.birthYear || "?"}–${a.deathYear || ""})`;
 }
 
-function AnimCount({ target, duration = 700, format }) {
+function AnimCount({ target, duration = 600, format }) {
   const [val, setVal] = useState(0);
   useEffect(() => {
     if (target === 0) { setVal(0); return; }
-    const steps = 20;
-    const stepTime = duration / steps;
-    let current = 0;
-    const timer = setInterval(() => {
-      current += Math.ceil(target / steps);
-      if (current >= target) { current = target; clearInterval(timer); }
-      setVal(current);
-    }, stepTime);
-    return () => clearInterval(timer);
+    let start = null;
+    const ease = (t) => 1 - Math.pow(1 - t, 3); // ease-out cubic
+    const step = (ts) => {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      setVal(Math.round(ease(progress) * target));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }, [target]);
   return format ? format(val) : val;
 }
@@ -980,7 +980,7 @@ function Statistics({ items, artists, onBack, lang }) {
         {/* Total */}
         <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 16, border: "1px solid #e8e0d6", textAlign: "center" }}>
           <div style={{ fontSize: 13, color: "#9a8e82", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{t.totalValue}</div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>€<AnimCount target={totalValue} duration={2000} format={(v) => v.toLocaleString()} /></div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>€<AnimCount target={totalValue} duration={1000} format={(v) => v.toLocaleString()} /></div>
           <div style={{ fontSize: 14, color: "#7a6e63", marginTop: 4 }}>{items.length} {t.pieceCount}{noPriceCount > 0 ? ` · ${noPriceCount} ${t.noValue.toLowerCase()}` : ""}</div>
         </div>
 
@@ -1341,7 +1341,7 @@ function ArtCollection() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div>
                 <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, margin: 0, color: "#2c2420", fontWeight: 700, lineHeight: 1.1 }}>{t.appTitle}</h1>
-                <span style={{ fontSize: 13, color: "#9a8e82" }}><AnimCount target={items.length} duration={1000} /> {t.totalPieces}</span>
+                <span style={{ fontSize: 13, color: "#9a8e82" }}><AnimCount target={items.length} duration={800} /> {t.totalPieces}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button onClick={() => { setShowMenu(true); }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
