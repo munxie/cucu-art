@@ -103,8 +103,9 @@ const T = {
     birthYear: "Born",
     deathYear: "Died",
     yearField: "Year Created",
-    yearApprox: "Approx.",
     era: "Era / Period",
+    eraFrom: "From",
+    eraTo: "To",
     category: "Category",
     medium: "Medium / Technique",
     priceField: "Price (EUR)",
@@ -133,7 +134,6 @@ const T = {
     selectCategory: "Select category",
     selectMedium: "Select medium",
     selectCondition: "Select condition",
-    selectEra: "Select era",
     excellent: "Excellent",
     good: "Good",
     fair: "Fair",
@@ -187,23 +187,6 @@ const T = {
     manageArtists: "Artists",
     artistCount: "artists",
     searchArtists: "Search artists...",
-    era_pre1700: "Before 1700",
-    era_1700s: "1700s",
-    era_1800_1850: "Early 1800s (1800–1850)",
-    era_1850_1900: "Late 1800s (1850–1900)",
-    era_1900_1910: "1900–1910",
-    era_1910_1920: "1910–1920",
-    era_1920_1930: "1920–1930",
-    era_1930_1940: "1930–1940",
-    era_1940_1950: "1940–1950",
-    era_1950_1960: "1950–1960",
-    era_1960_1970: "1960–1970",
-    era_1970_1980: "1970–1980",
-    era_1980_1990: "1980–1990",
-    era_1990_2000: "1990–2000",
-    era_2000_2010: "2000–2010",
-    era_2010_2020: "2010–2020",
-    era_2020plus: "2020+",
     searchOrAdd: "Search or add artist...",
     noArtistsYet: "No artists yet",
     framed: "Framed",
@@ -252,8 +235,9 @@ const T = {
     birthYear: "Născut",
     deathYear: "Decedat",
     yearField: "Anul Creării",
-    yearApprox: "Aprox.",
     era: "Epocă / Perioadă",
+    eraFrom: "De la",
+    eraTo: "Până la",
     category: "Categorie",
     medium: "Mediu / Tehnică",
     priceField: "Preț (EUR)",
@@ -282,7 +266,6 @@ const T = {
     selectCategory: "Selectează categoria",
     selectMedium: "Selectează mediul",
     selectCondition: "Selectează starea",
-    selectEra: "Selectează epoca",
     excellent: "Excelentă",
     good: "Bună",
     fair: "Acceptabilă",
@@ -336,23 +319,6 @@ const T = {
     manageArtists: "Artiști",
     artistCount: "artiști",
     searchArtists: "Caută artiști...",
-    era_pre1700: "Înainte de 1700",
-    era_1700s: "Anii 1700",
-    era_1800_1850: "Începutul anilor 1800 (1800–1850)",
-    era_1850_1900: "Sfârșitul anilor 1800 (1850–1900)",
-    era_1900_1910: "1900–1910",
-    era_1910_1920: "1910–1920",
-    era_1920_1930: "1920–1930",
-    era_1930_1940: "1930–1940",
-    era_1940_1950: "1940–1950",
-    era_1950_1960: "1950–1960",
-    era_1960_1970: "1960–1970",
-    era_1970_1980: "1970–1980",
-    era_1980_1990: "1980–1990",
-    era_1990_2000: "1990–2000",
-    era_2000_2010: "2000–2010",
-    era_2010_2020: "2010–2020",
-    era_2020plus: "2020+",
     searchOrAdd: "Caută sau adaugă artist...",
     noArtistsYet: "Niciun artist încă",
     framed: "Înrămat",
@@ -388,8 +354,6 @@ const METAL_MEDIUMS = ["bronze", "iron", "copper", "brass", "silver", "pewter", 
 const CERAMIC_MEDIUMS = ["porcelain", "stoneware", "terracotta", "faience", "earthenware", "otherMedium"];
 const OTHER_MEDIUMS = ["textile", "wood", "glass", "otherMedium"];
 const CONDITIONS = ["excellent", "good", "fair", "poor", "needsRestoration"];
-const ERAS = ["era_pre1700", "era_1700s", "era_1800_1850", "era_1850_1900", "era_1900_1910", "era_1910_1920", "era_1920_1930", "era_1930_1940", "era_1940_1950", "era_1950_1960", "era_1960_1970", "era_1970_1980", "era_1980_1990", "era_1990_2000", "era_2000_2010", "era_2010_2020", "era_2020plus"];
-const ERA_MIDPOINTS = { era_pre1700: 1650, era_1700s: 1750, era_1800_1850: 1825, era_1850_1900: 1875, era_1900_1910: 1905, era_1910_1920: 1915, era_1920_1930: 1925, era_1930_1940: 1935, era_1940_1950: 1945, era_1950_1960: 1955, era_1960_1970: 1965, era_1970_1980: 1975, era_1980_1990: 1985, era_1990_2000: 1995, era_2000_2010: 2005, era_2010_2020: 2015, era_2020plus: 2023 };
 const ALL_MEDIUMS = [...new Set([...PAINTING_MEDIUMS, ...VASE_MEDIUMS, ...SCULPTURE_MEDIUMS, ...GLASSWARE_MEDIUMS, ...METAL_MEDIUMS, ...CERAMIC_MEDIUMS, ...OTHER_MEDIUMS])];
 
 function getMediums(cat) {
@@ -419,7 +383,7 @@ function compressImage(file, maxDim, quality) {
 function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
 
 const emptyItem = () => ({
-  id: generateId(), title: "", artistId: "", year: "", yearApprox: false, era: "",
+  id: generateId(), title: "", artistId: "", year: "", eraFrom: "", eraTo: "",
   category: "", medium: "", price: "", description: "", framed: null,
   dimensions: "", dimFrame: "", dimHeight: "", dimWidth: "", dimDepth: "", condition: "", storageLocation: "", links: [""], keywords: "",
   photos: [], thumbnails: [], dateAdded: new Date().toISOString(),
@@ -602,7 +566,7 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
   const t = T[lang];
   const [form, setForm] = useState(item ? { ...item, links: item.links?.length ? [...item.links] : [""] } : emptyItem());
   const [processing, setProcessing] = useState(false);
-  const [dateMode, setDateMode] = useState(item?.era ? "era" : "year");
+  const [dateMode, setDateMode] = useState(item?.eraFrom ? "era" : "year");
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -670,26 +634,20 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
         <div>
           <label style={S.label}>{t.yearField}</label>
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-            <button onClick={() => { setDateMode("year"); set("era", ""); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "year" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "year" ? "#fff" : "#5a4e43" }}>
+            <button onClick={() => { setDateMode("year"); set("eraFrom", ""); set("eraTo", ""); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "year" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "year" ? "#fff" : "#5a4e43" }}>
               {lang === "ro" ? "An exact" : "Exact Year"}
             </button>
-            <button onClick={() => { setDateMode("era"); set("year", ""); set("yearApprox", false); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "era" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "era" ? "#fff" : "#5a4e43" }}>
+            <button onClick={() => { setDateMode("era"); set("year", ""); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "era" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "era" ? "#fff" : "#5a4e43" }}>
               {t.era}
             </button>
           </div>
           {dateMode === "year" ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input style={{ ...S.input, flex: 1 }} type="number" value={form.year} onChange={(e) => set("year", e.target.value)} placeholder={lang === "ro" ? "ex. 1920" : "e.g. 1920"} />
-              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#7a6e63", whiteSpace: "nowrap", cursor: "pointer", userSelect: "none" }}>
-                <input type="checkbox" checked={form.yearApprox || false} onChange={(e) => set("yearApprox", e.target.checked)} style={{ width: 18, height: 18, accentColor: "#6b5b4e" }} />
-                ≈ {t.yearApprox}
-              </label>
-            </div>
+            <input style={S.input} type="number" value={form.year} onChange={(e) => set("year", e.target.value)} placeholder={lang === "ro" ? "ex. 1920" : "e.g. 1920"} />
           ) : (
-            <select style={S.select} value={form.era || ""} onChange={(e) => set("era", e.target.value)}>
-              <option value="">{t.selectEra}</option>
-              {ERAS.map((e) => <option key={e} value={e}>{t[e]}</option>)}
-            </select>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={{ ...S.label, fontSize: 12 }}>{t.eraFrom}</label><input style={S.input} type="number" value={form.eraFrom || ""} onChange={(e) => set("eraFrom", e.target.value)} placeholder={lang === "ro" ? "ex. 1850" : "e.g. 1850"} /></div>
+              <div><label style={{ ...S.label, fontSize: 12 }}>{t.eraTo}</label><input style={S.input} type="number" value={form.eraTo || ""} onChange={(e) => set("eraTo", e.target.value)} placeholder={lang === "ro" ? "ex. 1900" : "e.g. 1900"} /></div>
+            </div>
           )}
         </div>
 
@@ -783,8 +741,8 @@ function ItemDetail({ item, artists, onBack, onEdit, onDelete, lang }) {
   const [showViewer, setShowViewer] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const artist = artists.find((a) => a.id === item.artistId);
-  const yearDisplay = item.year ? `${item.yearApprox ? "≈ " : ""}${item.year}` : "";
-  const eraDisplay = item.era ? t[item.era] : "";
+  const yearDisplay = item.year ? item.year : "";
+  const eraDisplay = (item.eraFrom || item.eraTo) ? `${item.eraFrom || "?"}–${item.eraTo || "?"}` : "";
 
   const fieldRow = (label, value) => value ? (
     <div style={{ padding: "10px 0", borderBottom: "1px solid #ebe5de" }}>
@@ -1128,7 +1086,56 @@ function ArtCollection() {
   const [reorderMode, setReorderMode] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const longPressTimer = useRef(null);
+  const historyDepth = useRef(0);
   const t = T[lang];
+
+  // Navigation with browser history (Android back button support)
+  const navigateTo = useCallback((newView) => {
+    window.history.pushState({ view: newView }, "");
+    historyDepth.current++;
+    setView(newView);
+  }, []);
+
+  const navigateBack = useCallback(() => {
+    if (historyDepth.current > 0) {
+      window.history.back();
+    }
+  }, []);
+
+  const navigateToGallery = useCallback(() => {
+    const depth = historyDepth.current;
+    setView("gallery"); setSelectedId(null); setEditingItem(null); setShowMenu(false); setReorderMode(false);
+    if (depth > 0) {
+      historyDepth.current = 0;
+      window.history.go(-depth);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState({ view: "gallery" }, "");
+
+    const handlePopState = (e) => {
+      historyDepth.current = Math.max(0, historyDepth.current - 1);
+      const state = e.state;
+      if (!state || state.view === "gallery") {
+        setView("gallery");
+        setSelectedId(null);
+        setEditingItem(null);
+        setShowMenu(false);
+        setReorderMode(false);
+      } else if (state.view === "menu") {
+        setShowMenu(true);
+      } else if (state.view === "reorder") {
+        setReorderMode(true);
+      } else {
+        setView(state.view);
+        setShowMenu(false);
+        setReorderMode(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   useEffect(() => {
     Promise.all([loadItems(), loadData("art:artists")]).then(([li, la]) => {
@@ -1154,13 +1161,13 @@ function ArtCollection() {
     const exists = items.find((it) => it.id === cleaned.id);
     const ni = exists ? items.map((it) => it.id === cleaned.id ? cleaned : it) : [cleaned, ...items];
     await persistItems(ni);
-    setView("gallery"); setEditingItem(null);
+    navigateToGallery();
   };
 
   const handleDelete = async (id) => {
     await deleteItemPhotos(id);
     await persistItems(items.filter((it) => it.id !== id));
-    setView("gallery"); setSelectedId(null);
+    navigateToGallery();
   };
 
   const handleImport = async (data) => {
@@ -1196,7 +1203,7 @@ function ArtCollection() {
     }
     r = [...r].sort((a, b) => {
       switch (sortField) {
-        case "year": { const aY = Number(a.year) || ERA_MIDPOINTS[a.era] || 0; const bY = Number(b.year) || ERA_MIDPOINTS[b.era] || 0; return sortDir === "asc" ? aY - bY : bY - aY; }
+        case "year": { const aY = Number(a.year) || ((Number(a.eraFrom) || 0) + (Number(a.eraTo) || 0)) / (a.eraFrom && a.eraTo ? 2 : 1) || 0; const bY = Number(b.year) || ((Number(b.eraFrom) || 0) + (Number(b.eraTo) || 0)) / (b.eraFrom && b.eraTo ? 2 : 1) || 0; return sortDir === "asc" ? aY - bY : bY - aY; }
         case "price": return sortDir === "asc" ? (Number(a.price) || 0) - (Number(b.price) || 0) : (Number(b.price) || 0) - (Number(a.price) || 0);
         case "artist": { const aA = (artists.find((ar) => ar.id === a.artistId)?.name || "").toLowerCase(); const bA = (artists.find((ar) => ar.id === b.artistId)?.name || "").toLowerCase(); return sortDir === "asc" ? aA.localeCompare(bA) : bA.localeCompare(aA); }
         case "nationality": { const aA = (artists.find((ar) => ar.id === a.artistId)?.nationality || "").toLowerCase(); const bA = (artists.find((ar) => ar.id === b.artistId)?.nationality || "").toLowerCase(); return sortDir === "asc" ? aA.localeCompare(bA) : bA.localeCompare(aA); }
@@ -1215,20 +1222,20 @@ function ArtCollection() {
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f0ea", minHeight: "100vh", maxWidth: 480, margin: "0 auto", position: "relative" }}>
 
 
-      {view === "form" && <ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { setView(selectedId ? "detail" : "gallery"); setEditingItem(null); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} />}
+      {view === "form" && <ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { navigateBack(); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} />}
 
-      {view === "detail" && selectedItem && <ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { setView("gallery"); setSelectedId(null); }} onEdit={() => { setEditingItem(selectedItem); setView("form"); }} onDelete={handleDelete} />}
+      {view === "detail" && selectedItem && <ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { navigateBack(); }} onEdit={() => { setEditingItem(selectedItem); navigateTo("form"); }} onDelete={handleDelete} />}
 
-      {view === "artists" && <ArtistsList artists={artists} items={items} lang={lang} onEditArtist={handleArtistEdit} onBack={() => setView("gallery")} />}
+      {view === "artists" && <ArtistsList artists={artists} items={items} lang={lang} onEditArtist={handleArtistEdit} onBack={() => { navigateBack(); }} />}
 
-      {view === "stats" && <Statistics items={items} artists={artists} lang={lang} onBack={() => setView("gallery")} />}
+      {view === "stats" && <Statistics items={items} artists={artists} lang={lang} onBack={() => { navigateBack(); }} />}
 
       {showMenu && <AppMenu lang={lang}
-        onClose={() => setShowMenu(false)}
+        onClose={() => { setShowMenu(false); navigateBack(); }}
         onExport={() => exportCollection(items, artists)}
         onImport={handleImport}
-        onStats={() => setView("stats")}
-        onArtists={() => setView("artists")} />}
+        onStats={() => navigateTo("stats")}
+        onArtists={() => navigateTo("artists")} />}
 
       {view === "gallery" && (
         <>
@@ -1240,10 +1247,10 @@ function ArtCollection() {
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {reorderMode ? (
-                  <button onClick={() => { setReorderMode(false); setDragIdx(null); }} style={{ ...S.primaryBtn, padding: "6px 14px", fontSize: 13 }}>{t.reorderDone}</button>
+                  <button onClick={() => { setReorderMode(false); setDragIdx(null); navigateBack(); }} style={{ ...S.primaryBtn, padding: "6px 14px", fontSize: 13 }}>{t.reorderDone}</button>
                 ) : (
                   <>
-                    <button onClick={() => setShowMenu(true)} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
+                    <button onClick={() => { setShowMenu(true); window.history.pushState({ view: "menu" }, ""); historyDepth.current++; }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
                     <button onClick={() => setLang(lang === "en" ? "ro" : "en")} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 700, color: "#5a4e43" }}>{lang === "en" ? "RO" : "EN"}</button>
                   </>
                 )}
@@ -1339,8 +1346,8 @@ function ArtCollection() {
                   const itemIdx = items.findIndex((i) => i.id === item.id);
                   return (
                     <div key={item.id}
-                      onClick={() => { setSelectedId(item.id); setView("detail"); }}
-                      onTouchStart={() => { longPressTimer.current = setTimeout(() => { setReorderMode(true); setDragIdx(itemIdx); }, 600); }}
+                      onClick={() => { setSelectedId(item.id); navigateTo("detail"); }}
+                      onTouchStart={() => { longPressTimer.current = setTimeout(() => { setReorderMode(true); setDragIdx(itemIdx); window.history.pushState({ view: "reorder" }, ""); historyDepth.current++; }, 600); }}
                       onTouchEnd={() => { clearTimeout(longPressTimer.current); }}
                       onTouchMove={() => { clearTimeout(longPressTimer.current); }}
                       style={{ background: "#fff", borderRadius: 12, overflow: "hidden", cursor: "pointer", border: "1px solid #e8e0d6", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", WebkitUserSelect: "none", userSelect: "none" }}>
@@ -1351,7 +1358,7 @@ function ArtCollection() {
                         <div style={{ fontWeight: 700, fontSize: 14, color: "#2c2420", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title || "—"}</div>
                         <div style={{ fontSize: 12, color: "#7a6e63", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist?.name || ""}</div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span style={{ fontSize: 11, color: "#a8968a" }}>{item.year ? `${item.yearApprox ? "≈" : ""}${item.year}` : (item.era ? t[item.era] : "")}</span>
+                          <span style={{ fontSize: 11, color: "#a8968a" }}>{item.year ? item.year : (item.eraFrom || item.eraTo ? `${item.eraFrom || "?"}–${item.eraTo || "?"}` : "")}</span>
                           {item.price && <span style={{ fontSize: 12, color: "#6b5b4e", fontWeight: 700 }}>€{Number(item.price).toLocaleString()}</span>}
                         </div>
                       </div>
@@ -1362,7 +1369,7 @@ function ArtCollection() {
             )}
           </div>
 
-          {!reorderMode && <button onClick={() => { setEditingItem(null); setView("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
+          {!reorderMode && <button onClick={() => { setEditingItem(null); navigateTo("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
         </>
       )}
     </div>
