@@ -32,6 +32,10 @@
   .gallery-item { animation: scaleIn 0.2s ease-out; animation-fill-mode: both; }
   .menu-overlay { animation: fadeSlideIn 0.15s ease-out; }
   .menu-sheet { animation: slideInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes confettiFall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+  @keyframes milestoneIn { 0% { opacity: 0; transform: scale(0.5); } 50% { transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+  .confetti-piece { position: fixed; width: 10px; height: 10px; top: -10px; z-index: 2000; border-radius: 2px; animation: confettiFall linear forwards; pointer-events: none; }
+  .milestone-popup { animation: milestoneIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -1120,6 +1124,9 @@ function ArtCollection() {
   const [showFilters, setShowFilters] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [toast, setToast] = useState(null);
+  const [animCount, setAnimCount] = useState(0);
+  const [milestone, setMilestone] = useState(null);
+  const prevCount = useRef(0);
   
   const historyDepth = useRef(0);
   const t = T[lang];
@@ -1171,6 +1178,37 @@ function ArtCollection() {
       setItems(li || []); setArtists(la || []); setLoading(false);
     });
   }, []);
+
+  // Counter roll-up animation on load
+  useEffect(() => {
+    if (loading || items.length === 0) return;
+    const target = items.length;
+    const duration = 800;
+    const steps = 30;
+    const stepTime = duration / steps;
+    let current = 0;
+    const timer = setInterval(() => {
+      current += Math.ceil(target / steps);
+      if (current >= target) { current = target; clearInterval(timer); }
+      setAnimCount(current);
+    }, stepTime);
+    return () => clearInterval(timer);
+  }, [loading]);
+
+  // Milestone check
+  const MILESTONES = [25, 50, 100, 150, 200, 250, 300, 400, 500];
+  useEffect(() => {
+    if (loading) return;
+    const count = items.length;
+    const prev = prevCount.current;
+    prevCount.current = count;
+    if (prev === 0) return; // skip first load
+    const hit = MILESTONES.find((m) => count >= m && prev < m);
+    if (hit) {
+      setMilestone(hit);
+      setTimeout(() => setMilestone(null), 5000);
+    }
+  }, [items.length, loading]);
 
   const persistItems = useCallback(async (ni) => { setItems(ni); await saveItems(ni); }, []);
   const persistArtists = useCallback(async (na) => { setArtists(na); await saveData("art:artists", na); }, []);
@@ -1252,6 +1290,7 @@ function ArtCollection() {
     }
     r = [...r].sort((a, b) => {
       switch (sortField) {
+        case "inventoryNo": { const extractNum = (s) => { const m = (s || "").match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; }; const aI = extractNum(a.inventoryNo); const bI = extractNum(b.inventoryNo); return sortDir === "asc" ? aI - bI : bI - aI; }
         case "year": { const aY = Number(a.year) || ((Number(a.eraFrom) || 0) + (Number(a.eraTo) || 0)) / (a.eraFrom && a.eraTo ? 2 : 1) || 0; const bY = Number(b.year) || ((Number(b.eraFrom) || 0) + (Number(b.eraTo) || 0)) / (b.eraFrom && b.eraTo ? 2 : 1) || 0; return sortDir === "asc" ? aY - bY : bY - aY; }
         case "price": return sortDir === "asc" ? (Number(a.price) || 0) - (Number(b.price) || 0) : (Number(b.price) || 0) - (Number(a.price) || 0);
         case "artist": { const aA = (artists.find((ar) => ar.id === a.artistId)?.name || "").toLowerCase(); const bA = (artists.find((ar) => ar.id === b.artistId)?.name || "").toLowerCase(); return sortDir === "asc" ? aA.localeCompare(bA) : bA.localeCompare(aA); }
@@ -1292,7 +1331,7 @@ function ArtCollection() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div>
                 <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, margin: 0, color: "#2c2420", fontWeight: 700, lineHeight: 1.1 }}>{t.appTitle}</h1>
-                <span style={{ fontSize: 13, color: "#9a8e82" }}>{items.length} {t.totalPieces}</span>
+                <span style={{ fontSize: 13, color: "#9a8e82" }}>{animCount || items.length} {t.totalPieces}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button onClick={() => { setShowMenu(true); }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
@@ -1319,6 +1358,7 @@ function ArtCollection() {
                 <span style={{ fontSize: 12, color: "#9a8e82", fontWeight: 600, whiteSpace: "nowrap" }}>{t.sortBy}:</span>
                 <select value={sortField} onChange={(e) => setSortField(e.target.value)} style={{ flex: 1, padding: "6px 8px", border: "1px solid #d0c8be", borderRadius: 6, fontSize: 13, background: "#fff", fontFamily: "'DM Sans', sans-serif", color: "#2c2420" }}>
                   <option value="dateAdded">{t.dateAdded}</option>
+                  <option value="inventoryNo">{t.inventoryNo}</option>
                   <option value="year">{t.year}</option>
                   <option value="price">{t.price}</option>
                   <option value="artist">{t.artistName}</option>
@@ -1389,6 +1429,36 @@ function ArtCollection() {
           boxShadow: "0 4px 20px rgba(0,0,0,0.25)", zIndex: 1100,
           animation: "fadeSlideIn 0.25s ease-out", whiteSpace: "pre-line",
         }}>{toast}</div>
+      )}
+      {milestone && (
+        <>
+          {Array.from({ length: 40 }).map((_, i) => {
+            const colors = ["#6b5b4e", "#c0564a", "#4a5e3e", "#3e555e", "#d4a843", "#8b6ec0", "#e08050"];
+            return <div key={i} className="confetti-piece" style={{
+              left: `${Math.random() * 100}vw`,
+              backgroundColor: colors[i % colors.length],
+              width: Math.random() * 8 + 6,
+              height: Math.random() * 8 + 6,
+              borderRadius: Math.random() > 0.5 ? "50%" : "2px",
+              animationDuration: `${Math.random() * 2 + 2}s`,
+              animationDelay: `${Math.random() * 1.5}s`,
+            }} />;
+          })}
+          <div className="milestone-popup" style={{
+            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            background: "#fff", borderRadius: 20, padding: "32px 40px", textAlign: "center",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.2)", zIndex: 1500,
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 8 }}>🎉</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: "#2c2420", marginBottom: 6 }}>
+              {lang === "ro" ? "Felicitări!" : "Congratulations!"}
+            </div>
+            <div style={{ fontSize: 16, color: "#6b5b4e", fontWeight: 500 }}>
+              {lang === "ro" ? `${milestone} piese în colecție!` : `${milestone} pieces in the collection!`}
+            </div>
+          </div>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 1400 }} onClick={() => setMilestone(null)} />
+        </>
       )}
     </div>
   );
