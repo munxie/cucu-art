@@ -1,0 +1,14 @@
+{
+  "name": "Colecția de Artă Cucu",
+  "short_name": "Colecția Cucu",
+  "description": "Aplicație pentru gestionarea colecției de artă",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f0ea",
+  "theme_color": "#6b5b4e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#6b5b4e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Colecția Cucu">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<title>Colecția de Artă Cucu</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { background: #f5f0ea; font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+  #root { min-height: 100vh; }
+</style>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+// === IndexedDB Storage Layer ===
+const DB_NAME = 'cucu-art-collection';
+const DB_VERSION = 1;
+const STORE_NAME = 'keyvalue';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => { e.target.result.createObjectStore(STORE_NAME); };
+    req.onsuccess = (e) => resolve(e.target.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+window.db = {
+  async set(key, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  },
+  async get(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).get(key);
+      req.onsuccess = () => resolve(req.result !== undefined ? req.result : null);
+      req.onerror = (e) => reject(e.target.error);
+    });
+  },
+  async delete(key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  }
+};
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef, useMemo } = React;
+
+const T = {
+  en: {
+    appTitle: "Cucu Art Collection",
+    addNew: "Add New Piece",
+    search: "Search collection...",
+    all: "All",
+    paintings: "Paintings",
+    vases: "Vases",
+    sculptures: "Sculptures",
+    glassware: "Glassware",
+    metal: "Metal",
+    ceramics: "Ceramics",
+    other: "Other",
+    sortBy: "Sort by",
+    dateAdded: "Date Added",
+    year: "Year",
+    price: "Price",
+    artistName: "Artist",
+    nationality: "Nationality",
+    title: "Title",
+    artist: "Artist / Author",
+    artistNationality: "Nationality",
+    birthYear: "Born",
+    deathYear: "Died",
+    yearField: "Year Created",
+    yearApprox: "Approx.",
+    era: "Era / Period",
+    category: "Category",
+    medium: "Medium / Technique",
+    priceField: "Price (EUR)",
+    description: "Description",
+    dimensions: "Dimensions (H × W cm)",
+    condition: "Condition",
+    storageLocation: "Storage Location",
+    links: "Links",
+    addLink: "+ Add Link",
+    keywords: "Keywords (comma separated)",
+    photos: "Photos",
+    takePhoto: "Camera",
+    uploadPhoto: "Gallery",
+    save: "Save",
+    cancel: "Cancel",
+    edit: "Edit",
+    delete: "Delete",
+    deleteConfirm: "Delete this piece?",
+    yes: "Yes",
+    no: "No",
+    noItems: "No items yet. Tap + to add your first piece.",
+    noResults: "No items match your search.",
+    filterByArtist: "All Artists",
+    filterByNationality: "All Nationalities",
+    filterByMedium: "All Mediums",
+    selectCategory: "Select category",
+    selectMedium: "Select medium",
+    selectCondition: "Select condition",
+    selectEra: "Select era",
+    excellent: "Excellent",
+    good: "Good",
+    fair: "Fair",
+    poor: "Poor",
+    needsRestoration: "Needs Restoration",
+    oil: "Oil",
+    watercolor: "Watercolor",
+    etching: "Etching",
+    mixedMedia: "Mixed Media",
+    acrylic: "Acrylic",
+    tempera: "Tempera",
+    ink: "Ink",
+    charcoal: "Charcoal",
+    pencil: "Pencil",
+    print: "Print",
+    digital: "Digital",
+    otherMedium: "Other",
+    ceramic: "Ceramic",
+    porcelain: "Porcelain",
+    stoneware: "Stoneware",
+    terracotta: "Terracotta",
+    faience: "Faience",
+    earthenware: "Earthenware",
+    bronze: "Bronze",
+    marble: "Marble",
+    wood: "Wood",
+    stone: "Stone",
+    glass: "Glass",
+    crystal: "Crystal",
+    blownGlass: "Blown Glass",
+    stainedGlass: "Stained Glass",
+    cutGlass: "Cut Glass",
+    iron: "Iron",
+    copper: "Copper",
+    brass: "Brass",
+    silver: "Silver",
+    pewter: "Pewter",
+    tin: "Tin",
+    textile: "Textile",
+    back: "← Back",
+    totalPieces: "pieces",
+    photoLimit: "Max 5 photos",
+    ascending: "↑",
+    descending: "↓",
+    filters: "Filters",
+    clearFilters: "Clear Filters",
+    items: "items",
+    artistDetails: "Artist Details",
+    editArtist: "Edit Artist",
+    newArtist: "New artist — tap ✎ to add details",
+    manageArtists: "Artists",
+    artistCount: "artists",
+    searchArtists: "Search artists...",
+    era_pre1700: "Before 1700",
+    era_1700s: "1700s",
+    era_1800_1850: "Early 1800s (1800–1850)",
+    era_1850_1900: "Late 1800s (1850–1900)",
+    era_1900_1910: "1900–1910",
+    era_1910_1920: "1910–1920",
+    era_1920_1930: "1920–1930",
+    era_1930_1940: "1930–1940",
+    era_1940_1950: "1940–1950",
+    era_1950_1960: "1950–1960",
+    era_1960_1970: "1960–1970",
+    era_1970_1980: "1970–1980",
+    era_1980_1990: "1980–1990",
+    era_1990_2000: "1990–2000",
+    era_2000_2010: "2000–2010",
+    era_2010_2020: "2010–2020",
+    era_2020plus: "2020+",
+    searchOrAdd: "Search or add artist...",
+    noArtistsYet: "No artists yet",
+    framed: "Framed",
+    notFramed: "Not Framed",
+    dimPainting: "Painting Size (H × W cm)",
+    dimFrame: "Frame Size (H × W cm)",
+    dimHeight: "Height (cm)",
+    dimWidth: "Width (cm)",
+    dimDepth: "Depth (cm)",
+    exportCollection: "Export",
+    importCollection: "Import",
+    exportSuccess: "Collection exported!",
+    importSuccess: "Collection imported!",
+    importConfirm: "This will replace your current collection. Continue?",
+    statistics: "Statistics",
+    totalValue: "Total Value",
+    byCategory: "Value by Category",
+    pieceCount: "Pieces",
+    noValue: "No price set",
+    reorderMode: "Reorder",
+    reorderDone: "Done",
+    holdToReorder: "Hold an item to reorder",
+    menu: "Menu",
+  },
+  ro: {
+    appTitle: "Colecția de Artă Cucu",
+    addNew: "Adaugă Piesă Nouă",
+    search: "Caută în colecție...",
+    all: "Toate",
+    paintings: "Picturi",
+    vases: "Vaze",
+    sculptures: "Sculpturi",
+    glassware: "Sticlărie",
+    metal: "Metal",
+    ceramics: "Ceramică",
+    other: "Altele",
+    sortBy: "Sortează după",
+    dateAdded: "Data Adăugării",
+    year: "An",
+    price: "Preț",
+    artistName: "Artist",
+    nationality: "Naționalitate",
+    title: "Titlu",
+    artist: "Artist / Autor",
+    artistNationality: "Naționalitate",
+    birthYear: "Născut",
+    deathYear: "Decedat",
+    yearField: "Anul Creării",
+    yearApprox: "Aprox.",
+    era: "Epocă / Perioadă",
+    category: "Categorie",
+    medium: "Mediu / Tehnică",
+    priceField: "Preț (EUR)",
+    description: "Descriere",
+    dimensions: "Dimensiuni (Î × L cm)",
+    condition: "Stare",
+    storageLocation: "Locație Depozitare",
+    links: "Linkuri",
+    addLink: "+ Adaugă Link",
+    keywords: "Cuvinte cheie (separate prin virgulă)",
+    photos: "Fotografii",
+    takePhoto: "Cameră",
+    uploadPhoto: "Galerie",
+    save: "Salvează",
+    cancel: "Anulează",
+    edit: "Editează",
+    delete: "Șterge",
+    deleteConfirm: "Ștergi această piesă?",
+    yes: "Da",
+    no: "Nu",
+    noItems: "Nicio piesă încă. Apasă + pentru a adăuga prima piesă.",
+    noResults: "Niciun rezultat găsit.",
+    filterByArtist: "Toți Artiștii",
+    filterByNationality: "Toate Naționalitățile",
+    filterByMedium: "Toate Mediile",
+    selectCategory: "Selectează categoria",
+    selectMedium: "Selectează mediul",
+    selectCondition: "Selectează starea",
+    selectEra: "Selectează epoca",
+    excellent: "Excelentă",
+    good: "Bună",
+    fair: "Acceptabilă",
+    poor: "Slabă",
+    needsRestoration: "Necesită Restaurare",
+    oil: "Ulei",
+    watercolor: "Acuarelă",
+    etching: "Gravură",
+    mixedMedia: "Tehnică Mixtă",
+    acrylic: "Acrilic",
+    tempera: "Tempera",
+    ink: "Cerneală",
+    charcoal: "Cărbune",
+    pencil: "Creion",
+    print: "Print",
+    digital: "Digital",
+    otherMedium: "Altul",
+    ceramic: "Ceramică",
+    porcelain: "Porțelan",
+    stoneware: "Gresie",
+    terracotta: "Teracotă",
+    faience: "Faianță",
+    earthenware: "Olărie",
+    bronze: "Bronz",
+    marble: "Marmură",
+    wood: "Lemn",
+    stone: "Piatră",
+    glass: "Sticlă",
+    crystal: "Cristal",
+    blownGlass: "Sticlă Suflată",
+    stainedGlass: "Vitraliu",
+    cutGlass: "Sticlă Șlefuită",
+    iron: "Fier",
+    copper: "Cupru",
+    brass: "Alamă",
+    silver: "Argint",
+    pewter: "Cositor",
+    tin: "Tinichea",
+    textile: "Textil",
+    back: "← Înapoi",
+    totalPieces: "piese",
+    photoLimit: "Max 5 fotografii",
+    ascending: "↑",
+    descending: "↓",
+    filters: "Filtre",
+    clearFilters: "Șterge Filtrele",
+    items: "piese",
+    artistDetails: "Detalii Artist",
+    editArtist: "Editează Artistul",
+    newArtist: "Artist nou — apasă ✎ pentru detalii",
+    manageArtists: "Artiști",
+    artistCount: "artiști",
+    searchArtists: "Caută artiști...",
+    era_pre1700: "Înainte de 1700",
+    era_1700s: "Anii 1700",
+    era_1800_1850: "Începutul anilor 1800 (1800–1850)",
+    era_1850_1900: "Sfârșitul anilor 1800 (1850–1900)",
+    era_1900_1910: "1900–1910",
+    era_1910_1920: "1910–1920",
+    era_1920_1930: "1920–1930",
+    era_1930_1940: "1930–1940",
+    era_1940_1950: "1940–1950",
+    era_1950_1960: "1950–1960",
+    era_1960_1970: "1960–1970",
+    era_1970_1980: "1970–1980",
+    era_1980_1990: "1980–1990",
+    era_1990_2000: "1990–2000",
+    era_2000_2010: "2000–2010",
+    era_2010_2020: "2010–2020",
+    era_2020plus: "2020+",
+    searchOrAdd: "Caută sau adaugă artist...",
+    noArtistsYet: "Niciun artist încă",
+    framed: "Înrămat",
+    notFramed: "Neînrămat",
+    dimPainting: "Dimensiuni Pictură (Î × L cm)",
+    dimFrame: "Dimensiuni Ramă (Î × L cm)",
+    dimHeight: "Înălțime (cm)",
+    dimWidth: "Lățime (cm)",
+    dimDepth: "Adâncime (cm)",
+    exportCollection: "Export",
+    importCollection: "Import",
+    exportSuccess: "Colecția a fost exportată!",
+    importSuccess: "Colecția a fost importată!",
+    importConfirm: "Aceasta va înlocui colecția curentă. Continui?",
+    statistics: "Statistici",
+    totalValue: "Valoare Totală",
+    byCategory: "Valoare pe Categorii",
+    pieceCount: "Piese",
+    noValue: "Fără preț",
+    reorderMode: "Reordonare",
+    reorderDone: "Gata",
+    holdToReorder: "Ține apăsat pentru a reordona",
+    menu: "Meniu",
+  },
+};
+
+const CATEGORIES = ["paintings", "vases", "sculptures", "glassware", "metal", "ceramics", "other"];
+const PAINTING_MEDIUMS = ["oil", "watercolor", "etching", "mixedMedia", "acrylic", "tempera", "ink", "charcoal", "pencil", "print", "digital", "otherMedium"];
+const VASE_MEDIUMS = ["ceramic", "porcelain", "glass", "crystal", "stoneware", "otherMedium"];
+const SCULPTURE_MEDIUMS = ["bronze", "marble", "wood", "stone", "ceramic", "glass", "otherMedium"];
+const GLASSWARE_MEDIUMS = ["crystal", "blownGlass", "stainedGlass", "cutGlass", "glass", "otherMedium"];
+const METAL_MEDIUMS = ["bronze", "iron", "copper", "brass", "silver", "pewter", "tin", "otherMedium"];
+const CERAMIC_MEDIUMS = ["porcelain", "stoneware", "terracotta", "faience", "earthenware", "otherMedium"];
+const OTHER_MEDIUMS = ["textile", "wood", "glass", "otherMedium"];
+const CONDITIONS = ["excellent", "good", "fair", "poor", "needsRestoration"];
+const ERAS = ["era_pre1700", "era_1700s", "era_1800_1850", "era_1850_1900", "era_1900_1910", "era_1910_1920", "era_1920_1930", "era_1930_1940", "era_1940_1950", "era_1950_1960", "era_1960_1970", "era_1970_1980", "era_1980_1990", "era_1990_2000", "era_2000_2010", "era_2010_2020", "era_2020plus"];
+const ERA_MIDPOINTS = { era_pre1700: 1650, era_1700s: 1750, era_1800_1850: 1825, era_1850_1900: 1875, era_1900_1910: 1905, era_1910_1920: 1915, era_1920_1930: 1925, era_1930_1940: 1935, era_1940_1950: 1945, era_1950_1960: 1955, era_1960_1970: 1965, era_1970_1980: 1975, era_1980_1990: 1985, era_1990_2000: 1995, era_2000_2010: 2005, era_2010_2020: 2015, era_2020plus: 2023 };
+const ALL_MEDIUMS = [...new Set([...PAINTING_MEDIUMS, ...VASE_MEDIUMS, ...SCULPTURE_MEDIUMS, ...GLASSWARE_MEDIUMS, ...METAL_MEDIUMS, ...CERAMIC_MEDIUMS, ...OTHER_MEDIUMS])];
+
+function getMediums(cat) {
+  const map = { paintings: PAINTING_MEDIUMS, vases: VASE_MEDIUMS, sculptures: SCULPTURE_MEDIUMS, glassware: GLASSWARE_MEDIUMS, metal: METAL_MEDIUMS, ceramics: CERAMIC_MEDIUMS, other: OTHER_MEDIUMS };
+  return map[cat] || [];
+}
+
+function compressImage(file, maxDim, quality) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > maxDim || h > maxDim) { if (w > h) { h = (h / w) * maxDim; w = maxDim; } else { w = (w / h) * maxDim; h = maxDim; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function generateId() { return Date.now().toString(36) + Math.random().toString(36).substr(2, 6); }
+
+const emptyItem = () => ({
+  id: generateId(), title: "", artistId: "", year: "", yearApprox: false, era: "",
+  category: "", medium: "", price: "", description: "", framed: null,
+  dimensions: "", dimFrame: "", dimHeight: "", dimWidth: "", dimDepth: "", condition: "", storageLocation: "", links: [""], keywords: "",
+  photos: [], thumbnails: [], dateAdded: new Date().toISOString(),
+});
+
+const emptyArtist = (name = "") => ({ id: generateId(), name, nationality: "", birthYear: "", deathYear: "" });
+
+async function saveData(key, data) { try { await window.db.set(key, JSON.stringify(data)); } catch (e) { console.error("Save:", e); } }
+async function loadData(key) { try { const r = await window.db.get(key); if (r === null) throw new Error("not found"); return JSON.parse(r); } catch { return null; } }
+
+async function saveItems(items) {
+  const meta = items.map(({ photos, thumbnails, ...rest }) => rest);
+  await saveData("art:meta2", meta);
+  for (const item of items) {
+    if (item.photos?.length > 0) await saveData(`art:photos:${item.id}`, { photos: item.photos, thumbnails: item.thumbnails || [] });
+  }
+}
+
+async function loadItems() {
+  const meta = await loadData("art:meta2");
+  if (!meta) { const old = await loadData("art:meta"); return old || []; }
+  const items = [];
+  for (const m of meta) {
+    let photos = [], thumbnails = [];
+    try { const p = await loadData(`art:photos:${m.id}`); if (p) { photos = p.photos || []; thumbnails = p.thumbnails || []; } } catch {}
+    items.push({ ...m, photos, thumbnails });
+  }
+  return items;
+}
+
+async function deleteItemPhotos(id) { try { await window.db.delete(`art:photos:${id}`); } catch {} }
+
+const S = {
+  input: { width: "100%", padding: "14px 12px", border: "1px solid #d0c8be", borderRadius: 10, fontSize: 16, fontFamily: "'DM Sans', sans-serif", background: "#faf8f5", color: "#2c2420", boxSizing: "border-box", outline: "none" },
+  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#7a6e63", marginBottom: 6, fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.02em" },
+  get select() { return { ...this.input, appearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a6e63' fill='none' stroke-width='1.5'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32 }; },
+  header: { position: "sticky", top: 0, background: "#f5f0ea", borderBottom: "1px solid #e0d8cf", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", zIndex: 50 },
+  headerBtn: { background: "none", border: "none", color: "#6b5b4e", fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 },
+  primaryBtn: { background: "#6b5b4e", color: "#fff", border: "none", borderRadius: 8, padding: "8px 20px", fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 },
+  dangerBtn: { background: "#c0564a", color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600 },
+  tag: (bg, fg) => ({ background: bg, color: fg, padding: "4px 12px", borderRadius: 20, fontSize: 13, fontWeight: 600, display: "inline-block" }),
+  smallInput: { padding: "10px 12px", fontSize: 15 },
+};
+
+function lifespan(a) {
+  if (!a?.birthYear && !a?.deathYear) return "";
+  return `(${a.birthYear || "?"}–${a.deathYear || ""})`;
+}
+
+// === Artist Autocomplete ===
+function ArtistField({ artistId, artists, onSelect, onCreate, onEditArtist, lang }) {
+  const t = T[lang];
+  const [query, setQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showArtistEdit, setShowArtistEdit] = useState(false);
+  const wrapRef = useRef(null);
+  const selectedArtist = artists.find((a) => a.id === artistId);
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSuggestions(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return artists.slice(0, 10);
+    const q = query.toLowerCase();
+    return artists.filter((a) => a.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [query, artists]);
+
+  if (selectedArtist) {
+    return (
+      <div>
+        <label style={S.label}>{t.artist}</label>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "#fff", border: "1px solid #d0c8be", borderRadius: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#2c2420" }}>{selectedArtist.name}</div>
+            <div style={{ fontSize: 13, color: "#7a6e63" }}>
+              {[selectedArtist.nationality, lifespan(selectedArtist)].filter(Boolean).join(" · ") || t.newArtist}
+            </div>
+          </div>
+          <button onClick={() => setShowArtistEdit(true)} style={{ background: "#e8e0d6", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#5a4e43", fontWeight: 600 }}>✎</button>
+          <button onClick={() => { onSelect(""); setQuery(""); }} style={{ background: "none", border: "none", fontSize: 18, color: "#a8968a", cursor: "pointer", padding: 0 }}>✕</button>
+        </div>
+        {showArtistEdit && (
+          <ArtistEditInline artist={selectedArtist} lang={lang}
+            onSave={(u) => { onEditArtist(u); setShowArtistEdit(false); }}
+            onClose={() => setShowArtistEdit(false)} />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={wrapRef}>
+      <label style={S.label}>{t.artist}</label>
+      <input style={S.input} value={query} placeholder={t.searchOrAdd}
+        onChange={(e) => { setQuery(e.target.value); setShowSuggestions(true); }}
+        onFocus={() => setShowSuggestions(true)} />
+      {showSuggestions && (
+        <div style={{ background: "#fff", border: "1px solid #d0c8be", borderRadius: 10, marginTop: 4, maxHeight: 220, overflowY: "auto", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
+          {filtered.map((a) => (
+            <div key={a.id} onClick={() => { onSelect(a.id); setQuery(""); setShowSuggestions(false); }}
+              style={{ padding: "12px 14px", cursor: "pointer", borderBottom: "1px solid #f0ebe5" }}>
+              <div style={{ fontWeight: 600, fontSize: 15, color: "#2c2420" }}>{a.name}</div>
+              <div style={{ fontSize: 12, color: "#9a8e82" }}>{[a.nationality, lifespan(a)].filter(Boolean).join(" · ")}</div>
+            </div>
+          ))}
+          {query.trim() && !filtered.some((a) => a.name.toLowerCase() === query.trim().toLowerCase()) && (
+            <div onClick={() => { const a = onCreate(query.trim()); setQuery(""); setShowSuggestions(false); }}
+              style={{ padding: "12px 14px", cursor: "pointer", background: "#f5f0ea", borderTop: filtered.length ? "1px solid #e0d8cf" : "none" }}>
+              <span style={{ fontWeight: 600, color: "#6b5b4e" }}>+ </span>
+              <span style={{ color: "#6b5b4e" }}>{query.trim()}</span>
+            </div>
+          )}
+          {!query.trim() && filtered.length === 0 && (
+            <div style={{ padding: "14px", color: "#9a8e82", fontSize: 14, textAlign: "center" }}>{t.noArtistsYet}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArtistEditInline({ artist, lang, onSave, onClose }) {
+  const t = T[lang];
+  const [form, setForm] = useState({ ...artist });
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  return (
+    <div style={{ background: "#fff", border: "1px solid #d0c8be", borderRadius: 10, marginTop: 8, padding: 14 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#2c2420", marginBottom: 10 }}>{t.artistDetails}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div><label style={{ ...S.label, fontSize: 12 }}>{t.artistName}</label><input style={{ ...S.input, ...S.smallInput }} value={form.name} onChange={(e) => set("name", e.target.value)} /></div>
+        <div><label style={{ ...S.label, fontSize: 12 }}>{t.artistNationality}</label><input style={{ ...S.input, ...S.smallInput }} value={form.nationality} onChange={(e) => set("nationality", e.target.value)} /></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div><label style={{ ...S.label, fontSize: 12 }}>{t.birthYear}</label><input style={{ ...S.input, ...S.smallInput }} type="number" value={form.birthYear} onChange={(e) => set("birthYear", e.target.value)} placeholder="e.g. 1840" /></div>
+          <div><label style={{ ...S.label, fontSize: 12 }}>{t.deathYear}</label><input style={{ ...S.input, ...S.smallInput }} type="number" value={form.deathYear} onChange={(e) => set("deathYear", e.target.value)} placeholder="e.g. 1926" /></div>
+        </div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ ...S.headerBtn, fontSize: 14 }}>{t.cancel}</button>
+          <button onClick={() => onSave(form)} style={{ ...S.primaryBtn, padding: "6px 16px", fontSize: 14 }}>{t.save}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Photo Viewer ===
+function PhotoViewer({ photos, onClose }) {
+  const [idx, setIdx] = useState(0);
+  const [zoomed, setZoomed] = useState(false);
+  if (!photos?.length) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}
+      onClick={() => zoomed ? setZoomed(false) : onClose()}>
+      <div style={{ position: "absolute", top: 12, right: 16, color: "#fff", fontSize: 32, cursor: "pointer", zIndex: 1001 }} onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", width: "100%", overflow: zoomed ? "auto" : "hidden", padding: 16 }}
+        onClick={(e) => { e.stopPropagation(); setZoomed(!zoomed); }}>
+        <img src={photos[idx]} alt="" style={{ maxWidth: zoomed ? "200%" : "100%", maxHeight: zoomed ? "none" : "80vh", objectFit: "contain", transition: "all 0.3s ease" }} />
+      </div>
+      {photos.length > 1 && <>
+        <div style={{ display: "flex", gap: 12, padding: 16 }} onClick={(e) => e.stopPropagation()}>
+          {photos.map((p, i) => (
+            <div key={i} onClick={() => setIdx(i)} style={{ width: 56, height: 56, borderRadius: 8, overflow: "hidden", border: i === idx ? "2px solid #fff" : "2px solid transparent", cursor: "pointer" }}>
+              <img src={p} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          ))}
+        </div>
+        <div onClick={(e) => { e.stopPropagation(); setIdx((idx - 1 + photos.length) % photos.length); setZoomed(false); }}
+          style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "#fff", fontSize: 36, cursor: "pointer", padding: "16px 8px", userSelect: "none" }}>‹</div>
+        <div onClick={(e) => { e.stopPropagation(); setIdx((idx + 1) % photos.length); setZoomed(false); }}
+          style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "#fff", fontSize: 36, cursor: "pointer", padding: "16px 8px", userSelect: "none" }}>›</div>
+      </>}
+    </div>
+  );
+}
+
+// === Item Form ===
+function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdit, lang }) {
+  const t = T[lang];
+  const [form, setForm] = useState(item ? { ...item, links: item.links?.length ? [...item.links] : [""] } : emptyItem());
+  const [processing, setProcessing] = useState(false);
+  const [dateMode, setDateMode] = useState(item?.era ? "era" : "year");
+  const cameraRef = useRef(null);
+  const galleryRef = useRef(null);
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handlePhoto = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    const remaining = 5 - form.photos.length;
+    if (remaining <= 0) return;
+    setProcessing(true);
+    const np = [], nt = [];
+    for (const file of files.slice(0, remaining)) {
+      np.push(await compressImage(file, 1200, 0.7));
+      nt.push(await compressImage(file, 200, 0.5));
+    }
+    setForm((f) => ({ ...f, photos: [...f.photos, ...np], thumbnails: [...(f.thumbnails || []), ...nt] }));
+    setProcessing(false);
+    e.target.value = "";
+  };
+
+  const removePhoto = (i) => setForm((f) => ({ ...f, photos: f.photos.filter((_, j) => j !== i), thumbnails: (f.thumbnails || []).filter((_, j) => j !== i) }));
+  const mediums = getMediums(form.category);
+
+  return (
+    <div style={{ padding: "0 0 100px 0" }}>
+      <div style={S.header}>
+        <button onClick={onCancel} style={S.headerBtn}>{t.cancel}</button>
+        <span style={{ fontWeight: 700, fontSize: 17, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>{item ? t.edit : t.addNew}</span>
+        <button onClick={() => onSave(form)} style={S.primaryBtn}>{t.save}</button>
+      </div>
+
+      <div style={{ padding: "20px 16px", display: "flex", flexDirection: "column", gap: 18 }}>
+        {/* Photos */}
+        <div>
+          <label style={S.label}>{t.photos} ({form.photos.length}/5)</label>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            {form.photos.map((p, i) => (
+              <div key={i} style={{ position: "relative", width: 90, height: 90, borderRadius: 10, overflow: "hidden", border: "1px solid #d0c8be" }}>
+                <img src={form.thumbnails?.[i] || p} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <div onClick={() => removePhoto(i)} style={{ position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, cursor: "pointer", lineHeight: 1 }}>✕</div>
+              </div>
+            ))}
+            {form.photos.length < 5 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" onChange={handlePhoto} style={{ display: "none" }} />
+                <button onClick={() => cameraRef.current?.click()} disabled={processing}
+                  style={{ width: 90, height: 40, borderRadius: 10, border: "2px dashed #c4b8ab", background: "transparent", cursor: "pointer", fontSize: 13, color: "#7a6e63", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>📷 {t.takePhoto}</button>
+                <input ref={galleryRef} type="file" accept="image/*" multiple onChange={handlePhoto} style={{ display: "none" }} />
+                <button onClick={() => galleryRef.current?.click()} disabled={processing}
+                  style={{ width: 90, height: 40, borderRadius: 10, border: "2px dashed #c4b8ab", background: "transparent", cursor: "pointer", fontSize: 13, color: "#7a6e63", fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>🖼 {t.uploadPhoto}</button>
+              </div>
+            )}
+          </div>
+          {processing && <div style={{ color: "#7a6e63", fontSize: 13 }}>Processing...</div>}
+        </div>
+
+        <div><label style={S.label}>{t.title}</label><input style={S.input} value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
+
+        <ArtistField artistId={form.artistId} artists={artists} lang={lang}
+          onSelect={(id) => set("artistId", id)}
+          onCreate={(name) => { const a = onArtistCreate(name); set("artistId", a.id); return a; }}
+          onEditArtist={onArtistEdit} />
+
+        {/* Year OR Era — mutually exclusive */}
+        <div>
+          <label style={S.label}>{t.yearField}</label>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <button onClick={() => { setDateMode("year"); set("era", ""); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "year" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "year" ? "#fff" : "#5a4e43" }}>
+              {lang === "ro" ? "An exact" : "Exact Year"}
+            </button>
+            <button onClick={() => { setDateMode("era"); set("year", ""); set("yearApprox", false); }} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", background: dateMode === "era" ? "#6b5b4e" : "#e8e0d6", color: dateMode === "era" ? "#fff" : "#5a4e43" }}>
+              {t.era}
+            </button>
+          </div>
+          {dateMode === "year" ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input style={{ ...S.input, flex: 1 }} type="number" value={form.year} onChange={(e) => set("year", e.target.value)} placeholder={lang === "ro" ? "ex. 1920" : "e.g. 1920"} />
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13, color: "#7a6e63", whiteSpace: "nowrap", cursor: "pointer", userSelect: "none" }}>
+                <input type="checkbox" checked={form.yearApprox || false} onChange={(e) => set("yearApprox", e.target.checked)} style={{ width: 18, height: 18, accentColor: "#6b5b4e" }} />
+                ≈ {t.yearApprox}
+              </label>
+            </div>
+          ) : (
+            <select style={S.select} value={form.era || ""} onChange={(e) => set("era", e.target.value)}>
+              <option value="">{t.selectEra}</option>
+              {ERAS.map((e) => <option key={e} value={e}>{t[e]}</option>)}
+            </select>
+          )}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={S.label}>{t.category}</label>
+            <select style={S.select} value={form.category} onChange={(e) => { const v = e.target.value; set("category", v); set("medium", ""); if (v !== "paintings") set("framed", null); }}>
+              <option value="">{t.selectCategory}</option>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{t[c]}</option>)}
+            </select>
+          </div>
+          <div><label style={S.label}>{t.priceField}</label><input style={S.input} type="number" step="0.01" value={form.price} onChange={(e) => set("price", e.target.value)} /></div>
+        </div>
+
+        {form.category && mediums.length > 0 && (
+          <div>
+            <label style={S.label}>{t.medium}</label>
+            <select style={S.select} value={form.medium} onChange={(e) => set("medium", e.target.value)}>
+              <option value="">{t.selectMedium}</option>
+              {mediums.map((m) => <option key={m} value={m}>{t[m]}</option>)}
+            </select>
+          </div>
+        )}
+
+        {form.category === "paintings" && (
+          <div>
+            <label style={S.label}>{t.framed}</label>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[true, false].map((val) => (
+                <button key={String(val)} onClick={() => set("framed", val)} style={{
+                  padding: "10px 20px", borderRadius: 10, border: "1px solid #d0c8be", fontSize: 15, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                  background: form.framed === val ? "#6b5b4e" : "#faf8f5",
+                  color: form.framed === val ? "#fff" : "#5a4e43",
+                }}>
+                  {val ? t.framed : t.notFramed}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Dimensions — context-aware, only after category is selected */}
+        {form.category && (form.category === "paintings" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div><label style={S.label}>{t.dimPainting}</label><input style={S.input} value={form.dimensions} onChange={(e) => set("dimensions", e.target.value)} placeholder="e.g. 60 × 80" /></div>
+            {form.framed && (
+              <div><label style={S.label}>{t.dimFrame}</label><input style={S.input} value={form.dimFrame || ""} onChange={(e) => set("dimFrame", e.target.value)} placeholder="e.g. 70 × 90" /></div>
+            )}
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div><label style={S.label}>{t.dimHeight}</label><input style={S.input} type="number" value={form.dimHeight || ""} onChange={(e) => set("dimHeight", e.target.value)} /></div>
+            <div><label style={S.label}>{t.dimWidth}</label><input style={S.input} type="number" value={form.dimWidth || ""} onChange={(e) => set("dimWidth", e.target.value)} /></div>
+            <div><label style={S.label}>{t.dimDepth}</label><input style={S.input} type="number" value={form.dimDepth || ""} onChange={(e) => set("dimDepth", e.target.value)} /></div>
+          </div>
+        ))}
+
+        <div>
+          <label style={S.label}>{t.condition}</label>
+          <select style={S.select} value={form.condition} onChange={(e) => set("condition", e.target.value)}>
+            <option value="">{t.selectCondition}</option>
+            {CONDITIONS.map((c) => <option key={c} value={c}>{t[c]}</option>)}
+          </select>
+        </div>
+
+        <div><label style={S.label}>{t.storageLocation}</label><input style={S.input} value={form.storageLocation} onChange={(e) => set("storageLocation", e.target.value)} /></div>
+
+        <div><label style={S.label}>{t.description}</label><textarea style={{ ...S.input, minHeight: 100, resize: "vertical" }} value={form.description} onChange={(e) => set("description", e.target.value)} /></div>
+
+        <div><label style={S.label}>{t.keywords}</label><input style={S.input} value={form.keywords} onChange={(e) => set("keywords", e.target.value)} /></div>
+
+        <div>
+          <label style={S.label}>{t.links}</label>
+          {form.links.map((link, i) => (
+            <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input style={{ ...S.input, flex: 1 }} value={link} onChange={(e) => { const nl = [...form.links]; nl[i] = e.target.value; set("links", nl); }} placeholder="https://..." />
+              {form.links.length > 1 && <button onClick={() => set("links", form.links.filter((_, j) => j !== i))} style={{ background: "none", border: "none", fontSize: 18, color: "#a8968a", cursor: "pointer", padding: "0 8px" }}>✕</button>}
+            </div>
+          ))}
+          <button onClick={() => set("links", [...form.links, ""])} style={{ background: "none", border: "none", color: "#6b5b4e", fontSize: 14, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, padding: 0 }}>{t.addLink}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// === Item Detail ===
+function ItemDetail({ item, artists, onBack, onEdit, onDelete, lang }) {
+  const t = T[lang];
+  const [showViewer, setShowViewer] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const artist = artists.find((a) => a.id === item.artistId);
+  const yearDisplay = item.year ? `${item.yearApprox ? "≈ " : ""}${item.year}` : "";
+  const eraDisplay = item.era ? t[item.era] : "";
+
+  const fieldRow = (label, value) => value ? (
+    <div style={{ padding: "10px 0", borderBottom: "1px solid #ebe5de" }}>
+      <div style={{ fontSize: 12, color: "#9a8e82", fontWeight: 600, marginBottom: 3, letterSpacing: "0.03em", textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 16, color: "#2c2420", lineHeight: 1.5 }}>{value}</div>
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      {showViewer && <PhotoViewer photos={item.photos} onClose={() => setShowViewer(false)} />}
+      <div style={S.header}>
+        <button onClick={onBack} style={S.headerBtn}>{t.back}</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={onEdit} style={S.primaryBtn}>{t.edit}</button>
+          <button onClick={() => setConfirmDelete(true)} style={S.dangerBtn}>{t.delete}</button>
+        </div>
+      </div>
+
+      {confirmDelete && (
+        <div style={{ background: "#fef0ee", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #e8c8c3" }}>
+          <span style={{ color: "#8b3a30", fontWeight: 600, fontSize: 15 }}>{t.deleteConfirm}</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => { setConfirmDelete(false); onDelete(item.id); }} style={S.dangerBtn}>{t.yes}</button>
+            <button onClick={() => setConfirmDelete(false)} style={{ background: "#e0d8cf", color: "#2c2420", border: "none", borderRadius: 6, padding: "6px 16px", fontSize: 14, cursor: "pointer", fontWeight: 600 }}>{t.no}</button>
+          </div>
+        </div>
+      )}
+
+      {item.photos?.length > 0 && (
+        <div style={{ display: "flex", gap: 4, overflow: "auto", background: "#e8e0d6" }}>
+          {item.photos.map((p, i) => (
+            <div key={i} onClick={() => setShowViewer(true)} style={{ flex: item.photos.length === 1 ? "1" : "none", width: item.photos.length === 1 ? "100%" : "70vw", minHeight: 260, cursor: "pointer", flexShrink: 0 }}>
+              <img src={p} alt="" style={{ width: "100%", height: 260, objectFit: "cover", display: "block" }} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div style={{ padding: "16px 20px" }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: "#2c2420", margin: "0 0 4px 0", fontWeight: 700 }}>{item.title || (lang === "ro" ? "Fără titlu" : "Untitled")}</h2>
+        {artist && (
+          <div style={{ fontSize: 17, color: "#6b5b4e", fontWeight: 500, marginBottom: 2 }}>
+            {artist.name}{artist.nationality ? ` — ${artist.nationality}` : ""}
+          </div>
+        )}
+        {artist && lifespan(artist) && <div style={{ fontSize: 14, color: "#9a8e82", marginBottom: 16 }}>{lifespan(artist)}</div>}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {item.category && <span style={S.tag("#e8e0d6", "#5a4e43")}>{t[item.category]}</span>}
+          {item.medium && <span style={S.tag("#dfe8d8", "#4a5e3e")}>{t[item.medium] || item.medium}</span>}
+          {item.condition && <span style={S.tag("#d8e4e8", "#3e555e")}>{t[item.condition]}</span>}
+          {item.category === "paintings" && item.framed !== null && item.framed !== undefined && (
+            <span style={S.tag(item.framed ? "#d8e0d4" : "#e8e0d6", item.framed ? "#4a5e3e" : "#5a4e43")}>{item.framed ? t.framed : t.notFramed}</span>
+          )}
+        </div>
+
+        {item.price && <div style={{ fontSize: 22, color: "#2c2420", fontWeight: 700, marginBottom: 16 }}>€{Number(item.price).toLocaleString()}</div>}
+
+        {fieldRow(t.yearField, yearDisplay || eraDisplay)}
+        {item.category === "paintings" ? (
+          <>
+            {fieldRow(t.dimPainting, item.dimensions)}
+            {item.framed && fieldRow(t.dimFrame, item.dimFrame)}
+          </>
+        ) : (
+          fieldRow(t.dimensions, [item.dimHeight && `${lang === "ro" ? "Î" : "H"}: ${item.dimHeight} cm`, item.dimWidth && `${lang === "ro" ? "L" : "W"}: ${item.dimWidth} cm`, item.dimDepth && `${lang === "ro" ? "A" : "D"}: ${item.dimDepth} cm`].filter(Boolean).join(" × "))
+        )}
+        {fieldRow(t.storageLocation, item.storageLocation)}
+        {fieldRow(t.description, item.description)}
+        {fieldRow(t.keywords, item.keywords)}
+
+        {item.links?.filter((l) => l).length > 0 && (
+          <div style={{ padding: "10px 0" }}>
+            <div style={{ fontSize: 12, color: "#9a8e82", fontWeight: 600, marginBottom: 6, letterSpacing: "0.03em", textTransform: "uppercase" }}>{t.links}</div>
+            {item.links.filter((l) => l).map((link, i) => (
+              <a key={i} href={link} target="_blank" rel="noopener noreferrer" style={{ display: "block", color: "#6b5b4e", fontSize: 14, marginBottom: 4, wordBreak: "break-all" }}>{link}</a>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === Artists List ===
+function ArtistsList({ artists, items, onEditArtist, onBack, lang }) {
+  const t = T[lang];
+  const [search, setSearch] = useState("");
+  const [editingId, setEditingId] = useState(null);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return artists;
+    const q = search.toLowerCase();
+    return artists.filter((a) => a.name.toLowerCase().includes(q) || (a.nationality || "").toLowerCase().includes(q));
+  }, [artists, search]);
+
+  const itemCount = (id) => items.filter((i) => i.artistId === id).length;
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      <div style={S.header}>
+        <button onClick={onBack} style={S.headerBtn}>{t.back}</button>
+        <span style={{ fontWeight: 700, fontSize: 17, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>{t.manageArtists}</span>
+        <span style={{ fontSize: 13, color: "#9a8e82" }}>{artists.length} {t.artistCount}</span>
+      </div>
+      <div style={{ padding: "12px 16px 0" }}>
+        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.searchArtists} style={{ ...S.input, marginBottom: 12 }} />
+      </div>
+      <div style={{ padding: "0 16px" }}>
+        {filtered.map((a) => (
+          <div key={a.id} style={{ background: "#fff", borderRadius: 10, padding: 14, marginBottom: 8, border: "1px solid #e8e0d6" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "#2c2420" }}>{a.name}</div>
+                <div style={{ fontSize: 13, color: "#7a6e63" }}>{[a.nationality, lifespan(a)].filter(Boolean).join(" · ")}</div>
+                <div style={{ fontSize: 12, color: "#a8968a", marginTop: 2 }}>{itemCount(a.id)} {t.items}</div>
+              </div>
+              <button onClick={() => setEditingId(editingId === a.id ? null : a.id)}
+                style={{ background: "#e8e0d6", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#5a4e43", fontWeight: 600 }}>
+                {editingId === a.id ? "▲" : "✎"}
+              </button>
+            </div>
+            {editingId === a.id && (
+              <ArtistEditInline artist={a} lang={lang}
+                onSave={(u) => { onEditArtist(u); setEditingId(null); }}
+                onClose={() => setEditingId(null)} />
+            )}
+          </div>
+        ))}
+        {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9a8e82" }}>{t.noArtistsYet}</div>}
+      </div>
+    </div>
+  );
+}
+
+// === Statistics ===
+function Statistics({ items, artists, onBack, lang }) {
+  const t = T[lang];
+
+  const totalValue = useMemo(() => items.reduce((sum, i) => sum + (Number(i.price) || 0), 0), [items]);
+
+  const byCategory = useMemo(() => {
+    const cats = {};
+    items.forEach((i) => {
+      const cat = i.category || "other";
+      if (!cats[cat]) cats[cat] = { count: 0, value: 0 };
+      cats[cat].count++;
+      cats[cat].value += Number(i.price) || 0;
+    });
+    return Object.entries(cats).sort((a, b) => b[1].value - a[1].value);
+  }, [items]);
+
+  const topArtists = useMemo(() => {
+    const arts = {};
+    items.forEach((i) => {
+      if (!i.artistId) return;
+      if (!arts[i.artistId]) arts[i.artistId] = { count: 0, value: 0 };
+      arts[i.artistId].count++;
+      arts[i.artistId].value += Number(i.price) || 0;
+    });
+    return Object.entries(arts)
+      .map(([id, data]) => ({ ...data, name: artists.find((a) => a.id === id)?.name || "?" }))
+      .sort((a, b) => b.value - a.value).slice(0, 10);
+  }, [items, artists]);
+
+  const noPriceCount = items.filter((i) => !i.price).length;
+  const maxCatValue = byCategory.length ? byCategory[0][1].value : 1;
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      <div style={S.header}>
+        <button onClick={onBack} style={S.headerBtn}>{t.back}</button>
+        <span style={{ fontWeight: 700, fontSize: 17, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>{t.statistics}</span>
+        <span />
+      </div>
+      <div style={{ padding: "20px 16px" }}>
+        {/* Total */}
+        <div style={{ background: "#fff", borderRadius: 12, padding: 20, marginBottom: 16, border: "1px solid #e8e0d6", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: "#9a8e82", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{t.totalValue}</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: "#2c2420", fontFamily: "'Playfair Display', serif" }}>€{totalValue.toLocaleString()}</div>
+          <div style={{ fontSize: 14, color: "#7a6e63", marginTop: 4 }}>{items.length} {t.pieceCount}{noPriceCount > 0 ? ` · ${noPriceCount} ${t.noValue.toLowerCase()}` : ""}</div>
+        </div>
+
+        {/* By category */}
+        <div style={{ background: "#fff", borderRadius: 12, padding: 16, marginBottom: 16, border: "1px solid #e8e0d6" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#2c2420", marginBottom: 14 }}>{t.byCategory}</div>
+          {byCategory.map(([cat, data]) => (
+            <div key={cat} style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#5a4e43" }}>{t[cat] || cat}</span>
+                <span style={{ fontSize: 14, color: "#2c2420", fontWeight: 700 }}>€{data.value.toLocaleString()}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ flex: 1, height: 8, background: "#f0ebe5", borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${(data.value / maxCatValue) * 100}%`, height: "100%", background: "#6b5b4e", borderRadius: 4, transition: "width 0.3s ease" }} />
+                </div>
+                <span style={{ fontSize: 12, color: "#9a8e82", minWidth: 30, textAlign: "right" }}>{data.count}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Top artists by value */}
+        {topArtists.length > 0 && (
+          <div style={{ background: "#fff", borderRadius: 12, padding: 16, border: "1px solid #e8e0d6" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#2c2420", marginBottom: 14 }}>{lang === "ro" ? "Top Artiști după Valoare" : "Top Artists by Value"}</div>
+            {topArtists.map((a, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: i < topArtists.length - 1 ? "1px solid #f0ebe5" : "none" }}>
+                <div>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#5a4e43" }}>{a.name}</span>
+                  <span style={{ fontSize: 12, color: "#9a8e82", marginLeft: 6 }}>{a.count} {t.pieceCount.toLowerCase()}</span>
+                </div>
+                <span style={{ fontSize: 14, color: "#2c2420", fontWeight: 700 }}>€{a.value.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// === Export / Import ===
+function exportCollection(items, artists) {
+  const data = JSON.stringify({ version: 1, exportDate: new Date().toISOString(), items, artists }, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `colectia-cucu-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importCollection(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.items || !data.artists) throw new Error("Invalid format");
+        resolve(data);
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error("Read failed"));
+    reader.readAsText(file);
+  });
+}
+
+// === Menu ===
+function AppMenu({ onClose, onExport, onImport, onStats, onArtists, lang }) {
+  const t = T[lang];
+  const importRef = useRef(null);
+  const [importFile, setImportFile] = useState(null);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+
+  const menuItem = (label, icon, onClick) => (
+    <button onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 16px",
+      background: "none", border: "none", borderBottom: "1px solid #f0ebe5", cursor: "pointer",
+      fontSize: 16, color: "#2c2420", fontFamily: "'DM Sans', sans-serif", textAlign: "left",
+    }}>
+      <span style={{ fontSize: 20 }}>{icon}</span>
+      <span>{label}</span>
+    </button>
+  );
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportFile(file);
+    setShowImportConfirm(true);
+    e.target.value = "";
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile) return;
+    try {
+      const data = await importCollection(importFile);
+      onImport(data);
+      onClose();
+    } catch {
+      setShowImportConfirm(false);
+      setImportFile(null);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 900 }} onClick={onClose}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)" }} />
+      <div onClick={(e) => e.stopPropagation()} style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto",
+        background: "#fff", borderRadius: "16px 16px 0 0", paddingBottom: 24,
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
+      }}>
+        <div style={{ width: 36, height: 4, background: "#d0c8be", borderRadius: 2, margin: "10px auto 8px" }} />
+        {showImportConfirm ? (
+          <div style={{ padding: "16px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "#2c2420", marginBottom: 8 }}>{t.importCollection}</div>
+            <div style={{ fontSize: 14, color: "#7a6e63", marginBottom: 16 }}>{t.importConfirm}</div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={() => { setShowImportConfirm(false); setImportFile(null); }}
+                style={{ padding: "10px 24px", borderRadius: 8, border: "1px solid #d0c8be", background: "#faf8f5", fontSize: 15, cursor: "pointer", fontFamily: "'DM Sans', sans-serif", color: "#5a4e43", fontWeight: 600 }}>{t.no}</button>
+              <button onClick={handleConfirmImport}
+                style={{ ...S.primaryBtn, padding: "10px 24px" }}>{t.yes}</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "4px 0" }}>
+            {menuItem(t.statistics, "📊", () => { onStats(); onClose(); })}
+            {menuItem(t.manageArtists, "🎨", () => { onArtists(); onClose(); })}
+            {menuItem(t.exportCollection, "📤", () => { onExport(); onClose(); })}
+            {menuItem(t.importCollection, "📥", () => importRef.current?.click())}
+          </div>
+        )}
+        <input ref={importRef} type="file" accept=".json" style={{ display: "none" }} onChange={handleFileSelect} />
+      </div>
+    </div>
+  );
+}
+
+// === MAIN APP ===
+function ArtCollection() {
+  const [lang, setLang] = useState("en");
+  const [items, setItems] = useState([]);
+  const [artists, setArtists] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("gallery");
+  const [selectedId, setSelectedId] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [search, setSearch] = useState("");
+  const [catFilter, setCatFilter] = useState("");
+  const [artistFilter, setArtistFilter] = useState("");
+  const [nationalityFilter, setNationalityFilter] = useState("");
+  const [mediumFilter, setMediumFilter] = useState("");
+  const [sortField, setSortField] = useState("dateAdded");
+  const [sortDir, setSortDir] = useState("desc");
+  const [showFilters, setShowFilters] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
+  const [dragIdx, setDragIdx] = useState(null);
+  const longPressTimer = useRef(null);
+  const t = T[lang];
+
+  useEffect(() => {
+    Promise.all([loadItems(), loadData("art:artists")]).then(([li, la]) => {
+      setItems(li || []); setArtists(la || []); setLoading(false);
+    });
+  }, []);
+
+  const persistItems = useCallback(async (ni) => { setItems(ni); await saveItems(ni); }, []);
+  const persistArtists = useCallback(async (na) => { setArtists(na); await saveData("art:artists", na); }, []);
+
+  const handleArtistCreate = useCallback((name) => {
+    const a = emptyArtist(name);
+    const u = [...artists, a]; setArtists(u); saveData("art:artists", u); return a;
+  }, [artists]);
+
+  const handleArtistEdit = useCallback((updated) => {
+    const na = artists.map((a) => a.id === updated.id ? updated : a);
+    persistArtists(na);
+  }, [artists, persistArtists]);
+
+  const handleSave = async (formData) => {
+    const cleaned = { ...formData, links: formData.links.filter((l) => l.trim()) };
+    const exists = items.find((it) => it.id === cleaned.id);
+    const ni = exists ? items.map((it) => it.id === cleaned.id ? cleaned : it) : [cleaned, ...items];
+    await persistItems(ni);
+    setView("gallery"); setEditingItem(null);
+  };
+
+  const handleDelete = async (id) => {
+    await deleteItemPhotos(id);
+    await persistItems(items.filter((it) => it.id !== id));
+    setView("gallery"); setSelectedId(null);
+  };
+
+  const handleImport = async (data) => {
+    setItems(data.items); setArtists(data.artists);
+    await saveItems(data.items);
+    await saveData("art:artists", data.artists);
+  };
+
+  const moveItem = async (fromIdx, toIdx) => {
+    if (toIdx < 0 || toIdx >= items.length) return;
+    const ni = [...items];
+    const [moved] = ni.splice(fromIdx, 1);
+    ni.splice(toIdx, 0, moved);
+    await persistItems(ni);
+    setDragIdx(toIdx);
+  };
+
+  const artistNames = useMemo(() => [...new Set(items.map((i) => i.artistId).filter(Boolean))].map((id) => artists.find((a) => a.id === id)).filter(Boolean).sort((a, b) => a.name.localeCompare(b.name)), [items, artists]);
+  const nationalities = useMemo(() => [...new Set(artists.filter((a) => a.nationality).map((a) => a.nationality))].sort(), [artists]);
+
+  const filtered = useMemo(() => {
+    let r = items;
+    if (catFilter) r = r.filter((i) => i.category === catFilter);
+    if (artistFilter) r = r.filter((i) => i.artistId === artistFilter);
+    if (nationalityFilter) { const ids = new Set(artists.filter((a) => a.nationality === nationalityFilter).map((a) => a.id)); r = r.filter((i) => ids.has(i.artistId)); }
+    if (mediumFilter) r = r.filter((i) => i.medium === mediumFilter);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      r = r.filter((i) => {
+        const a = artists.find((ar) => ar.id === i.artistId);
+        return [i.title, a?.name, a?.nationality, i.description, i.keywords, i.storageLocation, i.year?.toString()].some((f) => f && f.toLowerCase().includes(q));
+      });
+    }
+    r = [...r].sort((a, b) => {
+      switch (sortField) {
+        case "year": { const aY = Number(a.year) || ERA_MIDPOINTS[a.era] || 0; const bY = Number(b.year) || ERA_MIDPOINTS[b.era] || 0; return sortDir === "asc" ? aY - bY : bY - aY; }
+        case "price": return sortDir === "asc" ? (Number(a.price) || 0) - (Number(b.price) || 0) : (Number(b.price) || 0) - (Number(a.price) || 0);
+        case "artist": { const aA = (artists.find((ar) => ar.id === a.artistId)?.name || "").toLowerCase(); const bA = (artists.find((ar) => ar.id === b.artistId)?.name || "").toLowerCase(); return sortDir === "asc" ? aA.localeCompare(bA) : bA.localeCompare(aA); }
+        case "nationality": { const aA = (artists.find((ar) => ar.id === a.artistId)?.nationality || "").toLowerCase(); const bA = (artists.find((ar) => ar.id === b.artistId)?.nationality || "").toLowerCase(); return sortDir === "asc" ? aA.localeCompare(bA) : bA.localeCompare(aA); }
+        default: return sortDir === "asc" ? (a.dateAdded || "").localeCompare(b.dateAdded || "") : (b.dateAdded || "").localeCompare(a.dateAdded || "");
+      }
+    });
+    return r;
+  }, [items, artists, catFilter, artistFilter, nationalityFilter, mediumFilter, search, sortField, sortDir]);
+
+  const selectedItem = items.find((i) => i.id === selectedId);
+  const activeFilters = [catFilter, artistFilter, nationalityFilter, mediumFilter].filter(Boolean).length;
+
+  if (loading) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#6b5b4e", background: "#f5f0ea" }}>Loading...</div>;
+
+  return (
+    <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f0ea", minHeight: "100vh", maxWidth: 480, margin: "0 auto", position: "relative" }}>
+
+
+      {view === "form" && <ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { setView(selectedId ? "detail" : "gallery"); setEditingItem(null); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} />}
+
+      {view === "detail" && selectedItem && <ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { setView("gallery"); setSelectedId(null); }} onEdit={() => { setEditingItem(selectedItem); setView("form"); }} onDelete={handleDelete} />}
+
+      {view === "artists" && <ArtistsList artists={artists} items={items} lang={lang} onEditArtist={handleArtistEdit} onBack={() => setView("gallery")} />}
+
+      {view === "stats" && <Statistics items={items} artists={artists} lang={lang} onBack={() => setView("gallery")} />}
+
+      {showMenu && <AppMenu lang={lang}
+        onClose={() => setShowMenu(false)}
+        onExport={() => exportCollection(items, artists)}
+        onImport={handleImport}
+        onStats={() => setView("stats")}
+        onArtists={() => setView("artists")} />}
+
+      {view === "gallery" && (
+        <>
+          <div style={{ background: "#f5f0ea", padding: "18px 16px 12px", borderBottom: "1px solid #e0d8cf", position: "sticky", top: 0, zIndex: 50 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <div>
+                <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, margin: 0, color: "#2c2420", fontWeight: 700, lineHeight: 1.1 }}>{t.appTitle}</h1>
+                <span style={{ fontSize: 13, color: "#9a8e82" }}>{items.length} {t.totalPieces}</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {reorderMode ? (
+                  <button onClick={() => { setReorderMode(false); setDragIdx(null); }} style={{ ...S.primaryBtn, padding: "6px 14px", fontSize: 13 }}>{t.reorderDone}</button>
+                ) : (
+                  <>
+                    <button onClick={() => setShowMenu(true)} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
+                    <button onClick={() => setLang(lang === "en" ? "ro" : "en")} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 700, color: "#5a4e43" }}>{lang === "en" ? "RO" : "EN"}</button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {!reorderMode && <>
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.search} style={{ width: "100%", padding: "12px 12px 12px 38px", border: "1px solid #d0c8be", borderRadius: 10, fontSize: 15, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#2c2420", boxSizing: "border-box", outline: "none" }} />
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#a8968a" }}>🔍</span>
+            </div>
+
+            <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+              {["", ...CATEGORIES].map((c) => (
+                <button key={c} onClick={() => setCatFilter(c)} style={{ padding: "7px 14px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'DM Sans', sans-serif", background: catFilter === c ? "#6b5b4e" : "#e8e0d6", color: catFilter === c ? "#fff" : "#5a4e43" }}>
+                  {c === "" ? t.all : t[c]}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1 }}>
+                <span style={{ fontSize: 12, color: "#9a8e82", fontWeight: 600, whiteSpace: "nowrap" }}>{t.sortBy}:</span>
+                <select value={sortField} onChange={(e) => setSortField(e.target.value)} style={{ flex: 1, padding: "6px 8px", border: "1px solid #d0c8be", borderRadius: 6, fontSize: 13, background: "#fff", fontFamily: "'DM Sans', sans-serif", color: "#2c2420" }}>
+                  <option value="dateAdded">{t.dateAdded}</option>
+                  <option value="year">{t.year}</option>
+                  <option value="price">{t.price}</option>
+                  <option value="artist">{t.artistName}</option>
+                  <option value="nationality">{t.nationality}</option>
+                </select>
+                <button onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")} style={{ background: "#e8e0d6", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 14, cursor: "pointer", color: "#5a4e43", fontWeight: 700 }}>{sortDir === "asc" ? t.ascending : t.descending}</button>
+              </div>
+              <button onClick={() => setShowFilters(!showFilters)} style={{ background: activeFilters > 0 ? "#6b5b4e" : "#e8e0d6", color: activeFilters > 0 ? "#fff" : "#5a4e43", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 13, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>{t.filters}{activeFilters > 0 ? ` (${activeFilters})` : ""}</button>
+            </div>
+
+            {showFilters && (
+              <div style={{ marginTop: 10, padding: 12, background: "#fff", borderRadius: 10, border: "1px solid #e0d8cf", display: "flex", flexDirection: "column", gap: 8 }}>
+                <select value={artistFilter} onChange={(e) => setArtistFilter(e.target.value)} style={{ width: "100%", padding: 10, border: "1px solid #d0c8be", borderRadius: 8, fontSize: 14, background: "#faf8f5", fontFamily: "'DM Sans', sans-serif" }}>
+                  <option value="">{t.filterByArtist}</option>
+                  {artistNames.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                <select value={nationalityFilter} onChange={(e) => setNationalityFilter(e.target.value)} style={{ width: "100%", padding: 10, border: "1px solid #d0c8be", borderRadius: 8, fontSize: 14, background: "#faf8f5", fontFamily: "'DM Sans', sans-serif" }}>
+                  <option value="">{t.filterByNationality}</option>
+                  {nationalities.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <select value={mediumFilter} onChange={(e) => setMediumFilter(e.target.value)} style={{ width: "100%", padding: 10, border: "1px solid #d0c8be", borderRadius: 8, fontSize: 14, background: "#faf8f5", fontFamily: "'DM Sans', sans-serif" }}>
+                  <option value="">{t.filterByMedium}</option>
+                  {ALL_MEDIUMS.map((m) => <option key={m} value={m}>{t[m]}</option>)}
+                </select>
+                {activeFilters > 0 && <button onClick={() => { setArtistFilter(""); setNationalityFilter(""); setMediumFilter(""); setCatFilter(""); }} style={{ background: "none", border: "none", color: "#c0564a", fontSize: 13, cursor: "pointer", fontWeight: 600, textAlign: "left", padding: "4px 0" }}>{t.clearFilters}</button>}
+              </div>
+            )}
+            </>}
+          </div>
+
+          <div style={{ padding: "12px 12px 100px" }}>
+            {reorderMode && <div style={{ textAlign: "center", padding: "8px", fontSize: 13, color: "#7a6e63", background: "#e8e0d6", borderRadius: 8, marginBottom: 10 }}>{t.holdToReorder}</div>}
+            {(reorderMode ? items : filtered).length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px", color: "#9a8e82", fontSize: 15, lineHeight: 1.6 }}>{items.length === 0 ? t.noItems : t.noResults}</div>
+            ) : reorderMode ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {items.map((item, idx) => {
+                  const artist = artists.find((a) => a.id === item.artistId);
+                  const isActive = dragIdx === idx;
+                  return (
+                    <div key={item.id} style={{
+                      display: "flex", alignItems: "center", gap: 10, background: isActive ? "#e8e0d6" : "#fff",
+                      borderRadius: 10, padding: "8px 10px", border: "1px solid #e8e0d6",
+                      boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.1)" : "none",
+                      transition: "background 0.15s",
+                    }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginRight: 4 }}>
+                        <button onClick={() => moveItem(idx, idx - 1)} disabled={idx === 0}
+                          style={{ background: "none", border: "none", fontSize: 18, cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "#d0c8be" : "#6b5b4e", padding: 0, lineHeight: 1 }}>▲</button>
+                        <button onClick={() => moveItem(idx, idx + 1)} disabled={idx === items.length - 1}
+                          style={{ background: "none", border: "none", fontSize: 18, cursor: idx === items.length - 1 ? "default" : "pointer", color: idx === items.length - 1 ? "#d0c8be" : "#6b5b4e", padding: 0, lineHeight: 1 }}>▼</button>
+                      </div>
+                      <div style={{ width: 50, height: 50, borderRadius: 8, overflow: "hidden", background: "#e8e0d6", flexShrink: 0 }}>
+                        {item.thumbnails?.[0] || item.photos?.[0] ? <img src={item.thumbnails?.[0] || item.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: 20, opacity: 0.3 }}>🖼</span>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#2c2420", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title || "—"}</div>
+                        <div style={{ fontSize: 12, color: "#7a6e63" }}>{artist?.name || ""}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {filtered.map((item) => {
+                  const artist = artists.find((a) => a.id === item.artistId);
+                  const itemIdx = items.findIndex((i) => i.id === item.id);
+                  return (
+                    <div key={item.id}
+                      onClick={() => { setSelectedId(item.id); setView("detail"); }}
+                      onTouchStart={() => { longPressTimer.current = setTimeout(() => { setReorderMode(true); setDragIdx(itemIdx); }, 600); }}
+                      onTouchEnd={() => { clearTimeout(longPressTimer.current); }}
+                      onTouchMove={() => { clearTimeout(longPressTimer.current); }}
+                      style={{ background: "#fff", borderRadius: 12, overflow: "hidden", cursor: "pointer", border: "1px solid #e8e0d6", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", WebkitUserSelect: "none", userSelect: "none" }}>
+                      <div style={{ width: "100%", height: 140, background: "#e8e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {item.thumbnails?.[0] || item.photos?.[0] ? <img src={item.thumbnails?.[0] || item.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 36, opacity: 0.3 }}>🖼</span>}
+                      </div>
+                      <div style={{ padding: "10px 10px 12px" }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: "#2c2420", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title || "—"}</div>
+                        <div style={{ fontSize: 12, color: "#7a6e63", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{artist?.name || ""}</div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 11, color: "#a8968a" }}>{item.year ? `${item.yearApprox ? "≈" : ""}${item.year}` : (item.era ? t[item.era] : "")}</span>
+                          {item.price && <span style={{ fontSize: 12, color: "#6b5b4e", fontWeight: 700 }}>€{Number(item.price).toLocaleString()}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {!reorderMode && <button onClick={() => { setEditingItem(null); setView("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Render
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(ArtCollection));
+</script>
+</body></html>
