@@ -606,9 +606,9 @@ function ItemForm({ item, items, artists, onSave, onCancel, onArtistCreate, onAr
       nt.push(await compressImage(file, 400, 0.7));
     }
     // Check for photo duplicates
-    const allExistingThumbs = [];
-    others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 5000) allExistingThumbs.push(th.slice(-500)); }));
-    const hasDup = nt.some((th) => th.length > 5000 && allExistingThumbs.includes(th.slice(-500)));
+    const existingSet = new Set();
+    others.forEach((it) => (it.thumbnails || []).forEach((th) => existingSet.add(th)));
+    const hasDup = nt.some((th) => existingSet.has(th));
     if (hasDup) setPhotoDupWarning(true);
     setForm((f) => ({ ...f, photos: [...f.photos, ...np], thumbnails: [...(f.thumbnails || []), ...nt] }));
     setProcessing(false);
