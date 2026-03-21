@@ -224,6 +224,7 @@ const T = {
     menu: "Menu",
     warnDupTitle: "⚠️ A piece with the same artist and title already exists in the collection.",
     warnDupPhoto: "⚠️ One or more photos already appear in another entry.",
+    warnDupInv: "⚠️ This inventory number is already used by another piece.",
   },
   ro: {
     appTitle: "Colecția de Artă Cucu",
@@ -356,6 +357,7 @@ const T = {
     menu: "Meniu",
     warnDupTitle: "⚠️ O piesă cu același artist și titlu există deja în colecție.",
     warnDupPhoto: "⚠️ Una sau mai multe fotografii apar deja la o altă piesă.",
+    warnDupInv: "⚠️ Acest număr de inventar este deja folosit la o altă piesă.",
   },
 };
 
@@ -1183,11 +1185,17 @@ function ArtCollection() {
       if (titleDup) warnings.push(t.warnDupTitle);
     }
 
+    // Check inventory number duplicate
+    if (cleaned.inventoryNo && cleaned.inventoryNo.trim()) {
+      const invDup = others.find((it) => it.inventoryNo && it.inventoryNo.trim() === cleaned.inventoryNo.trim());
+      if (invDup) warnings.push(t.warnDupInv);
+    }
+
     // Check photo duplicate (compare first 200 chars of thumbnail)
     if (cleaned.thumbnails?.length > 0) {
       const allExistingThumbs = [];
-      others.forEach((it) => (it.thumbnails || []).forEach((th) => allExistingThumbs.push(th.slice(0, 200))));
-      const hasPhotoDup = cleaned.thumbnails.some((th) => allExistingThumbs.includes(th.slice(0, 200)));
+      others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 800) allExistingThumbs.push(th.slice(500, 800)); }));
+      const hasPhotoDup = cleaned.thumbnails.some((th) => th.length > 800 && allExistingThumbs.includes(th.slice(500, 800)));
       if (hasPhotoDup) warnings.push(t.warnDupPhoto);
     }
 
