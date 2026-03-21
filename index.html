@@ -224,6 +224,8 @@ const T = {
     reorderDone: "Done",
     holdToReorder: "Hold an item to reorder",
     menu: "Menu",
+    warnDupTitle: "⚠️ A piece with the same artist and title already exists in the collection.",
+    warnDupPhoto: "⚠️ One or more photos already appear in another entry.",
   },
   ro: {
     appTitle: "Colecția de Artă Cucu",
@@ -356,6 +358,8 @@ const T = {
     reorderDone: "Gata",
     holdToReorder: "Ține apăsat pentru a reordona",
     menu: "Meniu",
+    warnDupTitle: "⚠️ O piesă cu același artist și titlu există deja în colecție.",
+    warnDupPhoto: "⚠️ Una sau mai multe fotografii apar deja la o altă piesă.",
   },
 };
 
@@ -1099,6 +1103,8 @@ function ArtCollection() {
   const [showMenu, setShowMenu] = useState(false);
   const [reorderMode, setReorderMode] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
+  const [toast, setToast] = useState(null);
+  
   const longPressTimer = useRef(null);
   const historyDepth = useRef(0);
   const t = T[lang];
@@ -1137,8 +1143,6 @@ function ArtCollection() {
         setEditingItem(null);
         setShowMenu(false);
         setReorderMode(false);
-      } else if (state.view === "menu") {
-        setShowMenu(true);
       } else if (state.view === "reorder") {
         setReorderMode(true);
       } else {
@@ -1170,13 +1174,36 @@ function ArtCollection() {
     persistArtists(na);
   }, [artists, persistArtists]);
 
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }, []);
+
   const normDim = (s) => s ? s.replace(/\s*[xX×]\s*/g, " × ").trim() : "";
   const handleSave = async (formData) => {
     const cleaned = { ...formData, links: formData.links.filter((l) => l.trim()), dimensions: normDim(formData.dimensions), dimFrame: normDim(formData.dimFrame) };
+    const others = items.filter((it) => it.id !== cleaned.id);
+
+    // Check artist + title duplicate
+    let warnings = [];
+    if (cleaned.title && cleaned.artistId) {
+      const titleDup = others.find((it) => it.artistId === cleaned.artistId && it.title && it.title.toLowerCase().trim() === cleaned.title.toLowerCase().trim());
+      if (titleDup) warnings.push(t.warnDupTitle);
+    }
+
+    // Check photo duplicate (compare first 200 chars of thumbnail)
+    if (cleaned.thumbnails?.length > 0) {
+      const allExistingThumbs = [];
+      others.forEach((it) => (it.thumbnails || []).forEach((th) => allExistingThumbs.push(th.slice(0, 200))));
+      const hasPhotoDup = cleaned.thumbnails.some((th) => allExistingThumbs.includes(th.slice(0, 200)));
+      if (hasPhotoDup) warnings.push(t.warnDupPhoto);
+    }
+
     const exists = items.find((it) => it.id === cleaned.id);
     const ni = exists ? items.map((it) => it.id === cleaned.id ? cleaned : it) : [cleaned, ...items];
     await persistItems(ni);
     navigateToGallery();
+    if (warnings.length) showToast(warnings.join("\n"));
   };
 
   const handleDelete = async (id) => {
@@ -1246,7 +1273,7 @@ function ArtCollection() {
       {view === "stats" && <div className="view-stats"><Statistics items={items} artists={artists} lang={lang} onBack={() => { navigateBack(); }} /></div>}
 
       {showMenu && <AppMenu lang={lang}
-        onClose={() => { setShowMenu(false); navigateBack(); }}
+        onClose={() => { setShowMenu(false); }}
         onExport={() => exportCollection(items, artists)}
         onImport={handleImport}
         onStats={() => navigateTo("stats")}
@@ -1265,7 +1292,7 @@ function ArtCollection() {
                   <button onClick={() => { setReorderMode(false); setDragIdx(null); navigateBack(); }} style={{ ...S.primaryBtn, padding: "6px 14px", fontSize: 13 }}>{t.reorderDone}</button>
                 ) : (
                   <>
-                    <button onClick={() => { setShowMenu(true); window.history.pushState({ view: "menu" }, ""); historyDepth.current++; }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
+                    <button onClick={() => { setShowMenu(true); }} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 600, color: "#5a4e43" }}>☰ {t.menu}</button>
                     <button onClick={() => setLang(lang === "en" ? "ro" : "en")} style={{ background: "#e8e0d6", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 13, cursor: "pointer", fontWeight: 700, color: "#5a4e43" }}>{lang === "en" ? "RO" : "EN"}</button>
                   </>
                 )}
@@ -1386,6 +1413,15 @@ function ArtCollection() {
 
           {!reorderMode && <button onClick={() => { setEditingItem(null); navigateTo("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
         </div>
+      )}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 90, left: 16, right: 16, maxWidth: 448, margin: "0 auto",
+          background: "#2c2420", color: "#fff", padding: "14px 18px", borderRadius: 12,
+          fontSize: 14, fontFamily: "'DM Sans', sans-serif", lineHeight: 1.5,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.25)", zIndex: 1100,
+          animation: "fadeSlideIn 0.25s ease-out", whiteSpace: "pre-line",
+        }}>{toast}</div>
       )}
     </div>
   );
