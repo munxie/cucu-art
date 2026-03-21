@@ -14,10 +14,24 @@
 <title>Colecția de Artă Cucu</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { background: #f5f0ea; font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
+  body { background: #f5f0ea; font-family: 'DM Sans', sans-serif; overflow-x: hidden; overscroll-behavior-y: none; }
+  html { overscroll-behavior-y: none; }
   #root { min-height: 100vh; }
   *::-webkit-scrollbar { display: none; }
   * { -ms-overflow-style: none; scrollbar-width: none; }
+  @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeSlideOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-8px); } }
+  @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+  .view-gallery { animation: fadeSlideIn 0.25s ease-out; }
+  .view-detail { animation: slideInRight 0.25s ease-out; }
+  .view-form { animation: slideInUp 0.2s ease-out; }
+  .view-stats { animation: slideInRight 0.25s ease-out; }
+  .view-artists { animation: slideInRight 0.25s ease-out; }
+  .gallery-item { animation: scaleIn 0.2s ease-out; animation-fill-mode: both; }
+  .menu-overlay { animation: fadeSlideIn 0.15s ease-out; }
+  .menu-sheet { animation: slideInUp 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -1032,9 +1046,9 @@ function AppMenu({ onClose, onExport, onImport, onStats, onArtists, lang }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 900 }} onClick={onClose}>
+    <div className="menu-overlay" style={{ position: "fixed", inset: 0, zIndex: 900 }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)" }} />
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div className="menu-sheet" onClick={(e) => e.stopPropagation()} style={{
         position: "absolute", bottom: 0, left: 0, right: 0, maxWidth: 480, margin: "0 auto",
         background: "#fff", borderRadius: "16px 16px 0 0", paddingBottom: 24,
         boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
@@ -1156,8 +1170,9 @@ function ArtCollection() {
     persistArtists(na);
   }, [artists, persistArtists]);
 
+  const normDim = (s) => s ? s.replace(/\s*[xX×]\s*/g, " × ").trim() : "";
   const handleSave = async (formData) => {
-    const cleaned = { ...formData, links: formData.links.filter((l) => l.trim()) };
+    const cleaned = { ...formData, links: formData.links.filter((l) => l.trim()), dimensions: normDim(formData.dimensions), dimFrame: normDim(formData.dimFrame) };
     const exists = items.find((it) => it.id === cleaned.id);
     const ni = exists ? items.map((it) => it.id === cleaned.id ? cleaned : it) : [cleaned, ...items];
     await persistItems(ni);
@@ -1222,13 +1237,13 @@ function ArtCollection() {
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f0ea", minHeight: "100vh", maxWidth: 480, margin: "0 auto", position: "relative" }}>
 
 
-      {view === "form" && <ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { navigateBack(); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} />}
+      {view === "form" && <div className="view-form"><ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { navigateBack(); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} /></div>}
 
-      {view === "detail" && selectedItem && <ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { navigateBack(); }} onEdit={() => { setEditingItem(selectedItem); navigateTo("form"); }} onDelete={handleDelete} />}
+      {view === "detail" && selectedItem && <div className="view-detail"><ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { navigateBack(); }} onEdit={() => { setEditingItem(selectedItem); navigateTo("form"); }} onDelete={handleDelete} /></div>}
 
-      {view === "artists" && <ArtistsList artists={artists} items={items} lang={lang} onEditArtist={handleArtistEdit} onBack={() => { navigateBack(); }} />}
+      {view === "artists" && <div className="view-artists"><ArtistsList artists={artists} items={items} lang={lang} onEditArtist={handleArtistEdit} onBack={() => { navigateBack(); }} /></div>}
 
-      {view === "stats" && <Statistics items={items} artists={artists} lang={lang} onBack={() => { navigateBack(); }} />}
+      {view === "stats" && <div className="view-stats"><Statistics items={items} artists={artists} lang={lang} onBack={() => { navigateBack(); }} /></div>}
 
       {showMenu && <AppMenu lang={lang}
         onClose={() => { setShowMenu(false); navigateBack(); }}
@@ -1238,7 +1253,7 @@ function ArtCollection() {
         onArtists={() => navigateTo("artists")} />}
 
       {view === "gallery" && (
-        <>
+        <div className="view-gallery">
           <div style={{ background: "#f5f0ea", padding: "18px 16px 12px", borderBottom: "1px solid #e0d8cf", position: "sticky", top: 0, zIndex: 50 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div>
@@ -1341,16 +1356,16 @@ function ArtCollection() {
               </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {filtered.map((item) => {
+                {filtered.map((item, fi) => {
                   const artist = artists.find((a) => a.id === item.artistId);
                   const itemIdx = items.findIndex((i) => i.id === item.id);
                   return (
-                    <div key={item.id}
+                    <div key={item.id} className="gallery-item"
                       onClick={() => { setSelectedId(item.id); navigateTo("detail"); }}
                       onTouchStart={() => { longPressTimer.current = setTimeout(() => { setReorderMode(true); setDragIdx(itemIdx); window.history.pushState({ view: "reorder" }, ""); historyDepth.current++; }, 600); }}
                       onTouchEnd={() => { clearTimeout(longPressTimer.current); }}
                       onTouchMove={() => { clearTimeout(longPressTimer.current); }}
-                      style={{ background: "#fff", borderRadius: 12, overflow: "hidden", cursor: "pointer", border: "1px solid #e8e0d6", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", WebkitUserSelect: "none", userSelect: "none" }}>
+                      style={{ background: "#fff", borderRadius: 12, overflow: "hidden", cursor: "pointer", border: "1px solid #e8e0d6", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", WebkitUserSelect: "none", userSelect: "none", animationDelay: `${Math.min(fi * 30, 300)}ms` }}>
                       <div style={{ width: "100%", height: 140, background: "#e8e0d6", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         {item.thumbnails?.[0] || item.photos?.[0] ? <img src={item.thumbnails?.[0] || item.photos[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 36, opacity: 0.3 }}>🖼</span>}
                       </div>
@@ -1370,7 +1385,7 @@ function ArtCollection() {
           </div>
 
           {!reorderMode && <button onClick={() => { setEditingItem(null); navigateTo("form"); }} style={{ position: "fixed", bottom: 24, right: 24, width: 60, height: 60, borderRadius: "50%", background: "#6b5b4e", color: "#fff", border: "none", fontSize: 32, cursor: "pointer", boxShadow: "0 4px 16px rgba(107,91,78,0.35)", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, zIndex: 100 }}>+</button>}
-        </>
+        </div>
       )}
     </div>
   );
