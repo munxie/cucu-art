@@ -607,8 +607,8 @@ function ItemForm({ item, items, artists, onSave, onCancel, onArtistCreate, onAr
     }
     // Check for photo duplicates
     const allExistingThumbs = [];
-    others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 800) allExistingThumbs.push(th.slice(500, 800)); }));
-    const hasDup = nt.some((th) => th.length > 800 && allExistingThumbs.includes(th.slice(500, 800)));
+    others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 5000) allExistingThumbs.push(th.slice(-500)); }));
+    const hasDup = nt.some((th) => th.length > 5000 && allExistingThumbs.includes(th.slice(-500)));
     if (hasDup) setPhotoDupWarning(true);
     setForm((f) => ({ ...f, photos: [...f.photos, ...np], thumbnails: [...(f.thumbnails || []), ...nt] }));
     setProcessing(false);
@@ -1206,14 +1206,6 @@ function ArtCollection() {
     if (cleaned.inventoryNo && cleaned.inventoryNo.trim()) {
       const invDup = others.find((it) => it.inventoryNo && it.inventoryNo.trim() === cleaned.inventoryNo.trim());
       if (invDup) warnings.push(t.warnDupInv);
-    }
-
-    // Check photo duplicate (compare first 200 chars of thumbnail)
-    if (cleaned.thumbnails?.length > 0) {
-      const allExistingThumbs = [];
-      others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 800) allExistingThumbs.push(th.slice(500, 800)); }));
-      const hasPhotoDup = cleaned.thumbnails.some((th) => th.length > 800 && allExistingThumbs.includes(th.slice(500, 800)));
-      if (hasPhotoDup) warnings.push(t.warnDupPhoto);
     }
 
     const exists = items.find((it) => it.id === cleaned.id);
