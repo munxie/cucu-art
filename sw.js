@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cucu-art-v1';
+const CACHE_NAME = 'cucu-art-v2';
 const ASSETS = [
   './',
   './index.html',
