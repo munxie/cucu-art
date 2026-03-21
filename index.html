@@ -16,6 +16,8 @@
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { background: #f5f0ea; font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
   #root { min-height: 100vh; }
+  *::-webkit-scrollbar { display: none; }
+  * { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -1107,7 +1109,7 @@ function AppMenu({ onClose, onExport, onImport, onStats, onArtists, lang }) {
 
 // === MAIN APP ===
 function ArtCollection() {
-  const [lang, setLang] = useState("en");
+  const [lang, setLang] = useState("ro");
   const [items, setItems] = useState([]);
   const [artists, setArtists] = useState([]);
   const [loading, setLoading] = useState(true);
