@@ -578,14 +578,20 @@ function PhotoViewer({ photos, onClose }) {
 }
 
 // === Item Form ===
-function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdit, lang }) {
+function ItemForm({ item, items, artists, onSave, onCancel, onArtistCreate, onArtistEdit, lang }) {
   const t = T[lang];
   const [form, setForm] = useState(item ? { ...item, links: item.links?.length ? [...item.links] : [""] } : emptyItem());
   const [processing, setProcessing] = useState(false);
   const [dateMode, setDateMode] = useState(item?.eraFrom ? "era" : "year");
+  const [photoDupWarning, setPhotoDupWarning] = useState(false);
   const cameraRef = useRef(null);
   const galleryRef = useRef(null);
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const others = items.filter((it) => it.id !== form.id);
+
+  // Inline inventory number duplicate check
+  const invDup = form.inventoryNo && form.inventoryNo.trim() && others.some((it) => it.inventoryNo && it.inventoryNo.trim() === form.inventoryNo.trim());
 
   const handlePhoto = async (e) => {
     const files = Array.from(e.target.files);
@@ -593,11 +599,17 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
     const remaining = 5 - form.photos.length;
     if (remaining <= 0) return;
     setProcessing(true);
+    setPhotoDupWarning(false);
     const np = [], nt = [];
     for (const file of files.slice(0, remaining)) {
       np.push(await compressImage(file, 1200, 0.7));
       nt.push(await compressImage(file, 400, 0.7));
     }
+    // Check for photo duplicates
+    const allExistingThumbs = [];
+    others.forEach((it) => (it.thumbnails || []).forEach((th) => { if (th.length > 800) allExistingThumbs.push(th.slice(500, 800)); }));
+    const hasDup = nt.some((th) => th.length > 800 && allExistingThumbs.includes(th.slice(500, 800)));
+    if (hasDup) setPhotoDupWarning(true);
     setForm((f) => ({ ...f, photos: [...f.photos, ...np], thumbnails: [...(f.thumbnails || []), ...nt] }));
     setProcessing(false);
     e.target.value = "";
@@ -637,11 +649,16 @@ function ItemForm({ item, artists, onSave, onCancel, onArtistCreate, onArtistEdi
             )}
           </div>
           {processing && <div style={{ color: "#7a6e63", fontSize: 13 }}>Processing...</div>}
+          {photoDupWarning && <div style={{ fontSize: 12, color: "#c0564a", marginTop: 4, fontWeight: 500 }}>{t.warnDupPhoto}</div>}
         </div>
 
         <div><label style={S.label}>{t.title}</label><input style={S.input} value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
 
-        <div><label style={S.label}>{t.inventoryNo}</label><input style={S.input} value={form.inventoryNo || ""} onChange={(e) => set("inventoryNo", e.target.value)} placeholder={lang === "ro" ? "ex. 001" : "e.g. 001"} /></div>
+        <div>
+          <label style={S.label}>{t.inventoryNo}</label>
+          <input style={{ ...S.input, border: invDup ? "1px solid #c0564a" : "1px solid #d0c8be" }} value={form.inventoryNo || ""} onChange={(e) => set("inventoryNo", e.target.value)} placeholder={lang === "ro" ? "ex. 001" : "e.g. 001"} />
+          {invDup && <div style={{ fontSize: 12, color: "#c0564a", marginTop: 4, fontWeight: 500 }}>{t.warnDupInv}</div>}
+        </div>
 
         <ArtistField artistId={form.artistId} artists={artists} lang={lang}
           onSelect={(id) => set("artistId", id)}
@@ -1262,7 +1279,7 @@ function ArtCollection() {
     <div style={{ fontFamily: "'DM Sans', sans-serif", background: "#f5f0ea", minHeight: "100vh", maxWidth: 480, margin: "0 auto", position: "relative" }}>
 
 
-      {view === "form" && <div className="view-form"><ItemForm item={editingItem} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { navigateBack(); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} /></div>}
+      {view === "form" && <div className="view-form"><ItemForm item={editingItem} items={items} artists={artists} lang={lang} onSave={handleSave} onCancel={() => { navigateBack(); }} onArtistCreate={handleArtistCreate} onArtistEdit={handleArtistEdit} /></div>}
 
       {view === "detail" && selectedItem && <div className="view-detail"><ItemDetail item={selectedItem} artists={artists} lang={lang} onBack={() => { navigateBack(); }} onEdit={() => { setEditingItem(selectedItem); navigateTo("form"); }} onDelete={handleDelete} /></div>}
 
