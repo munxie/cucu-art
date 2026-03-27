@@ -92,6 +92,10 @@ window.db = {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
+// Prevent browser from evicting IndexedDB data
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist();
+}
 </script>
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
@@ -201,6 +205,7 @@ const T = {
     clearFilters: "Clear Filters",
     items: "items",
     artistDetails: "Artist Details",
+    artistDescription: "Description",
     editArtist: "Edit Artist",
     newArtist: "New artist — tap ✎ to add details",
     manageArtists: "Artists",
@@ -215,7 +220,7 @@ const T = {
     dimHeight: "Height (cm)",
     dimWidth: "Width (cm)",
     dimDepth: "Depth (cm)",
-    exportCollection: "Share Collection",
+    exportCollection: "Export",
     importCollection: "Import",
     exportSuccess: "Collection exported!",
     importSuccess: "Collection imported!",
@@ -334,6 +339,7 @@ const T = {
     clearFilters: "Șterge Filtrele",
     items: "piese",
     artistDetails: "Detalii Artist",
+    artistDescription: "Descriere",
     editArtist: "Editează Artistul",
     newArtist: "Artist nou — apasă ✎ pentru detalii",
     manageArtists: "Artiști",
@@ -348,7 +354,7 @@ const T = {
     dimHeight: "Înălțime (cm)",
     dimWidth: "Lățime (cm)",
     dimDepth: "Adâncime (cm)",
-    exportCollection: "Trimite Colecția",
+    exportCollection: "Export",
     importCollection: "Import",
     exportSuccess: "Colecția a fost exportată!",
     importSuccess: "Colecția a fost importată!",
@@ -409,7 +415,7 @@ const emptyItem = () => ({
   photos: [], thumbnails: [], dateAdded: new Date().toISOString(),
 });
 
-const emptyArtist = (name = "") => ({ id: generateId(), name, nationality: "", birthYear: "", deathYear: "" });
+const emptyArtist = (name = "") => ({ id: generateId(), name, nationality: "", birthYear: "", deathYear: "", description: "" });
 
 async function saveData(key, data) { try { await window.db.set(key, JSON.stringify(data)); } catch (e) { console.error("Save:", e); } }
 async function loadData(key) { try { const r = await window.db.get(key); if (r === null) throw new Error("not found"); return JSON.parse(r); } catch { return null; } }
@@ -417,13 +423,15 @@ async function loadData(key) { try { const r = await window.db.get(key); if (r =
 async function saveItems(items) {
   const meta = items.map(({ photos, thumbnails, ...rest }) => rest);
   await saveData("art:meta2", meta);
+  await saveData("art:backup:meta", meta); // backup
   for (const item of items) {
     if (item.photos?.length > 0) await saveData(`art:photos:${item.id}`, { photos: item.photos, thumbnails: item.thumbnails || [] });
   }
 }
 
 async function loadItems() {
-  const meta = await loadData("art:meta2");
+  let meta = await loadData("art:meta2");
+  if (!meta) meta = await loadData("art:backup:meta"); // try backup
   if (!meta) { const old = await loadData("art:meta"); return old || []; }
   const items = [];
   for (const m of meta) {
@@ -559,6 +567,7 @@ function ArtistEditInline({ artist, lang, onSave, onClose }) {
           <div><label style={{ ...S.label, fontSize: 12 }}>{t.birthYear}</label><input style={{ ...S.input, ...S.smallInput }} type="number" value={form.birthYear} onChange={(e) => set("birthYear", e.target.value)} placeholder="e.g. 1840" /></div>
           <div><label style={{ ...S.label, fontSize: 12 }}>{t.deathYear}</label><input style={{ ...S.input, ...S.smallInput }} type="number" value={form.deathYear} onChange={(e) => set("deathYear", e.target.value)} placeholder="e.g. 1926" /></div>
         </div>
+        <div><label style={{ ...S.label, fontSize: 12 }}>{t.artistDescription}</label><textarea style={{ ...S.input, ...S.smallInput, minHeight: 70, resize: "vertical" }} value={form.description || ""} onChange={(e) => set("description", e.target.value)} /></div>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={{ ...S.headerBtn, fontSize: 14 }}>{t.cancel}</button>
           <button onClick={() => onSave(form)} style={{ ...S.primaryBtn, padding: "6px 16px", fontSize: 14 }}>{t.save}</button>
@@ -890,6 +899,7 @@ function ArtistsList({ artists, items, onEditArtist, onBack, lang }) {
   const t = T[lang];
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return artists;
@@ -910,26 +920,42 @@ function ArtistsList({ artists, items, onEditArtist, onBack, lang }) {
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t.searchArtists} style={{ ...S.input, marginBottom: 12 }} />
       </div>
       <div style={{ padding: "0 16px" }}>
-        {filtered.map((a) => (
-          <div key={a.id} style={{ background: "#fff", borderRadius: 10, padding: 14, marginBottom: 8, border: "1px solid #e8e0d6" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, color: "#2c2420" }}>{a.name}</div>
-                <div style={{ fontSize: 13, color: "#7a6e63" }}>{[a.nationality, lifespan(a)].filter(Boolean).join(" · ")}</div>
-                <div style={{ fontSize: 12, color: "#a8968a", marginTop: 2 }}>{itemCount(a.id)} {t.items}</div>
+        {filtered.map((a) => {
+          const isExpanded = expandedId === a.id;
+          const isEditing = editingId === a.id;
+          return (
+            <div key={a.id} style={{ background: "#fff", borderRadius: 10, padding: 14, marginBottom: 8, border: "1px solid #e8e0d6", transition: "all 0.2s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", cursor: "pointer" }}
+                onClick={() => { if (!isEditing) setExpandedId(isExpanded ? null : a.id); }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: "#2c2420" }}>{a.name}</div>
+                  <div style={{ fontSize: 13, color: "#7a6e63" }}>{[a.nationality, lifespan(a)].filter(Boolean).join(" · ")}</div>
+                  <div style={{ fontSize: 12, color: "#a8968a", marginTop: 2 }}>{itemCount(a.id)} {t.items}</div>
+                </div>
+                <button onClick={(e) => { e.stopPropagation(); setEditingId(isEditing ? null : a.id); setExpandedId(null); }}
+                  style={{ background: "#e8e0d6", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#5a4e43", fontWeight: 600 }}>
+                  {isEditing ? "▲" : "✎"}
+                </button>
               </div>
-              <button onClick={() => setEditingId(editingId === a.id ? null : a.id)}
-                style={{ background: "#e8e0d6", border: "none", borderRadius: 6, padding: "6px 10px", fontSize: 12, cursor: "pointer", color: "#5a4e43", fontWeight: 600 }}>
-                {editingId === a.id ? "▲" : "✎"}
-              </button>
+              {isExpanded && !isEditing && a.description && (
+                <div style={{ marginTop: 10, padding: "10px 0 0", borderTop: "1px solid #f0ebe5" }}>
+                  <div style={{ fontSize: 12, color: "#9a8e82", fontWeight: 600, marginBottom: 4, letterSpacing: "0.03em", textTransform: "uppercase" }}>{t.artistDescription}</div>
+                  <div style={{ fontSize: 14, color: "#2c2420", lineHeight: 1.6 }}>{a.description}</div>
+                </div>
+              )}
+              {isExpanded && !isEditing && !a.description && (
+                <div style={{ marginTop: 10, padding: "10px 0 0", borderTop: "1px solid #f0ebe5" }}>
+                  <div style={{ fontSize: 13, color: "#a8968a", fontStyle: "italic" }}>{lang === "ro" ? "Nicio descriere încă. Apasă ✎ pentru a adăuga." : "No description yet. Tap ✎ to add one."}</div>
+                </div>
+              )}
+              {isEditing && (
+                <ArtistEditInline artist={a} lang={lang}
+                  onSave={(u) => { onEditArtist(u); setEditingId(null); }}
+                  onClose={() => setEditingId(null)} />
+              )}
             </div>
-            {editingId === a.id && (
-              <ArtistEditInline artist={a} lang={lang}
-                onSave={(u) => { onEditArtist(u); setEditingId(null); }}
-                onClose={() => setEditingId(null)} />
-            )}
-          </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#9a8e82" }}>{t.noArtistsYet}</div>}
       </div>
     </div>
@@ -962,7 +988,7 @@ function Statistics({ items, artists, onBack, lang }) {
       arts[i.artistId].value += Number(i.price) || 0;
     });
     return Object.entries(arts)
-      .map(([id, data]) => ({ ...data, name: artists.find((a) => a.id === id)?.name || "?" }))
+      .map(([id, data]) => ({ ...data, name: artists.find((a) => a.id === id)?.name || (lang === "ro" ? "Necunoscut" : "Unknown") }))
       .sort((a, b) => b.value - a.value).slice(0, 10);
   }, [items, artists]);
 
@@ -1027,21 +1053,14 @@ function Statistics({ items, artists, onBack, lang }) {
 async function exportCollection(items, artists) {
   const data = JSON.stringify({ version: 1, exportDate: new Date().toISOString(), items, artists }, null, 2);
   const filename = `colectia-cucu-${new Date().toISOString().slice(0, 10)}.json`;
-  const file = new File([data], filename, { type: "application/json" });
-
-  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: "Colecția de Artă Cucu" });
-      return;
-    } catch (e) { if (e.name === "AbortError") return; }
-  }
-  // Fallback: download
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
@@ -1162,12 +1181,14 @@ function ArtCollection() {
     window.history.pushState({ view: newView }, "");
     historyDepth.current++;
     setView(newView);
+    window.scrollTo(0, 0);
   }, []);
 
   const navigateBack = useCallback(() => {
     if (historyDepth.current > 0) {
       window.history.back();
     }
+    window.scrollTo(0, 0);
   }, []);
 
   const navigateToGallery = useCallback(() => {
@@ -1177,6 +1198,7 @@ function ArtCollection() {
       historyDepth.current = 0;
       window.history.go(-depth);
     }
+    window.scrollTo(0, 0);
   }, []);
 
   useEffect(() => {
@@ -1194,13 +1216,15 @@ function ArtCollection() {
         setView(state.view);
         setShowMenu(false);
       }
+      window.scrollTo(0, 0);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
   useEffect(() => {
-    Promise.all([loadItems(), loadData("art:artists")]).then(([li, la]) => {
+    Promise.all([loadItems(), loadData("art:artists")]).then(async ([li, la]) => {
+      if (!la) la = await loadData("art:backup:artists"); // try backup
       setItems(li || []); setArtists(la || []); setLoading(false);
     });
   }, []);
@@ -1221,11 +1245,11 @@ function ArtCollection() {
   }, [items.length, loading]);
 
   const persistItems = useCallback(async (ni) => { setItems(ni); await saveItems(ni); }, []);
-  const persistArtists = useCallback(async (na) => { setArtists(na); await saveData("art:artists", na); }, []);
+  const persistArtists = useCallback(async (na) => { setArtists(na); await saveData("art:artists", na); await saveData("art:backup:artists", na); }, []);
 
   const handleArtistCreate = useCallback((name) => {
     const a = emptyArtist(name);
-    const u = [...artists, a]; setArtists(u); saveData("art:artists", u); return a;
+    const u = [...artists, a]; setArtists(u); saveData("art:artists", u); saveData("art:backup:artists", u); return a;
   }, [artists]);
 
   const handleArtistEdit = useCallback((updated) => {
